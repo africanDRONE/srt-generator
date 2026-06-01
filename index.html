@@ -64,13 +64,24 @@
       0 0 10px rgba(0,0,0,0.95);
   }
 
+  .transport { display: flex; gap: 10px; align-items: stretch; }
   .play-btn-big {
     background: var(--accent); color: #fff; border: none;
     padding: 20px; border-radius: 8px; font-size: 20px; font-weight: 600;
-    cursor: pointer; width: 100%; letter-spacing: 0.5px;
+    cursor: pointer; flex: 1; letter-spacing: 0.5px;
     transition: background 0.1s; font-family: inherit;
   }
   .play-btn-big:hover { background: #5aa8ff; }
+  .scrub-btn {
+    background: var(--panel); color: var(--text); border: 1px solid var(--border);
+    border-radius: 8px; cursor: pointer; font-family: inherit;
+    font-size: 15px; font-weight: 600; padding: 0 24px; min-width: 96px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 2px; line-height: 1.1; transition: background 0.1s;
+  }
+  .scrub-btn:hover { background: #2a2a2a; }
+  .scrub-btn .arrow { font-size: 20px; }
+  .scrub-btn .lbl { font-size: 11px; color: var(--muted); }
 
   .editor {
     background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
@@ -182,7 +193,15 @@
         <div id="overlay" class="subtitle-overlay"></div>
       </div>
 
-      <button class="play-btn-big" id="playBtn" onclick="togglePlay()">▶ Play</button>
+      <div class="transport">
+        <button class="scrub-btn" onclick="seekRelative(-3)" title="Back 3 seconds">
+          <span class="arrow">⏪</span><span class="lbl">−3s</span>
+        </button>
+        <button class="play-btn-big" id="playBtn" onclick="togglePlay()">▶ Play</button>
+        <button class="scrub-btn" onclick="seekRelative(3)" title="Forward 3 seconds">
+          <span class="arrow">⏩</span><span class="lbl">+3s</span>
+        </button>
+      </div>
 
       <div class="editor">
         <div class="marks">
@@ -341,6 +360,11 @@ function togglePlay() {
   const state = player.getPlayerState();
   if (state === YT.PlayerState.PLAYING) player.pauseVideo();
   else player.playVideo();
+}
+
+function seekRelative(delta) {
+  if (!playerReady) return;
+  player.seekTo(Math.max(0, getCurrentTime() + delta), true);
 }
 
 function markStart() {
@@ -512,6 +536,8 @@ document.addEventListener('keydown', (e) => {
   if (e.key === ' ' || e.code === 'Space') { e.preventDefault(); togglePlay(); }
   else if (e.key === 's' || e.key === 'S') { e.preventDefault(); markStart(); }
   else if (e.key === 'e' || e.key === 'E') { e.preventDefault(); markEnd(); }
+  else if (e.key === 'ArrowLeft') { e.preventDefault(); seekRelative(-3); }
+  else if (e.key === 'ArrowRight') { e.preventDefault(); seekRelative(3); }
 });
 
 // Toast
