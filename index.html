@@ -3,17 +3,16 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>SRT Translator — Subtitle Tool</title>
+<title>SRT Translator</title>
 <style>
   :root {
     --bg: #141414;
     --panel: #1f1f1f;
-    --panel-2: #161616;
+    --panel-2: #181818;
     --border: #2e2e2e;
     --text: #ececec;
     --muted: #888;
     --accent: #4a9eff;
-    --warn: #ff9b3d;
     --error: #ff5a5a;
     --success: #44dd88;
   }
@@ -26,54 +25,33 @@
     line-height: 1.4;
     font-size: 14px;
   }
-  .container { max-width: 1500px; margin: 0 auto; padding: 14px; }
+  .container { max-width: 1500px; margin: 0 auto; padding: 16px; }
 
   header {
-    display: flex; align-items: center; gap: 12px; margin-bottom: 14px;
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 18px;
   }
   header h1 {
-    font-size: 16px; font-weight: 600; letter-spacing: 0.3px; color: var(--text);
-    flex-shrink: 0; padding-right: 8px; border-right: 1px solid var(--border);
+    font-size: 14px; font-weight: 500; color: var(--muted);
+    letter-spacing: 0.3px;
   }
-  header h1 span { color: var(--muted); font-weight: 400; }
-  .url-row { display: flex; gap: 8px; flex: 1; }
-
-  input, button { font-family: inherit; font-size: 14px; }
-  input[type="text"] {
-    background: var(--panel); border: 1px solid var(--border); color: var(--text);
-    padding: 8px 12px; border-radius: 5px; outline: none; flex: 1;
+  .change-link {
+    font-size: 12px; color: var(--muted); background: none; border: none;
+    cursor: pointer; padding: 4px 10px; border-radius: 4px;
+    font-family: inherit;
   }
-  input[type="text"]:focus { border-color: var(--accent); }
-
-  button {
-    background: var(--panel); color: var(--text); border: 1px solid var(--border);
-    padding: 8px 14px; border-radius: 5px; cursor: pointer; transition: background 0.1s;
-  }
-  button:hover { background: #2a2a2a; }
-  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 500; }
-  button.primary:hover { background: #5aa8ff; }
-  button.danger { color: var(--error); }
-  button.danger:hover { background: #2a1818; }
+  .change-link:hover { color: var(--text); background: var(--panel); }
 
   .layout {
-    display: grid; grid-template-columns: 1fr 420px; gap: 14px;
+    display: grid; grid-template-columns: 1fr 380px; gap: 18px;
   }
-  .video-section { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+  .left { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
 
   #player-wrap {
     position: relative; width: 100%; aspect-ratio: 16/9;
-    background: #000; border-radius: 6px; overflow: hidden;
+    background: #000; border-radius: 8px; overflow: hidden;
   }
   #player { width: 100%; height: 100%; }
-
-  .now-showing {
-    background: var(--panel-2); border: 1px solid var(--border); border-radius: 6px;
-    padding: 14px; min-height: 64px; text-align: center; font-size: 17px;
-    line-height: 1.35; white-space: pre-line; display: flex; align-items: center;
-    justify-content: center;
-  }
-  .now-showing.empty { color: #444; font-style: italic; font-size: 13px; }
-  .now-showing.hidden { display: none; }
 
   .subtitle-overlay {
     position: absolute; bottom: 12%; left: 6%; right: 6%; text-align: center;
@@ -85,147 +63,94 @@
       -2px 2px 0 #000, 2px 2px 0 #000,
       0 0 10px rgba(0,0,0,0.95);
   }
-  .subtitle-overlay.hidden { display: none; }
 
-  .time-bar {
-    display: flex; align-items: center; justify-content: space-between; gap: 12px;
-    padding: 10px 14px; background: var(--panel); border-radius: 6px;
-    border: 1px solid var(--border); flex-wrap: wrap;
+  .play-btn-big {
+    background: var(--accent); color: #fff; border: none;
+    padding: 20px; border-radius: 8px; font-size: 20px; font-weight: 600;
+    cursor: pointer; width: 100%; letter-spacing: 0.5px;
+    transition: background 0.1s; font-family: inherit;
   }
-  .time-display {
-    font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 17px; font-weight: 500;
-    flex-shrink: 0; min-width: 130px;
-  }
-  .seek-group {
-    display: flex; align-items: center; gap: 2px;
-    background: var(--panel-2); border: 1px solid var(--border);
-    border-radius: 6px; padding: 3px;
-  }
-  .seek-group button {
-    background: transparent; border: none; padding: 6px 12px; font-size: 13px;
-    border-radius: 4px; color: var(--text); cursor: pointer; min-width: 44px;
-    font-family: "SF Mono", Menlo, Consolas, monospace;
-  }
-  .seek-group button:hover { background: var(--panel); }
-  .seek-group .play-btn {
-    background: var(--accent); color: #fff; font-weight: 500;
-    font-family: inherit; padding: 6px 18px; margin: 0 4px; min-width: 78px;
-  }
-  .seek-group .play-btn:hover { background: #5aa8ff; }
-
-  .right-controls {
-    display: flex; align-items: center; gap: 12px; flex-shrink: 0; flex-wrap: wrap;
-  }
-  .ctrl-group { display: flex; align-items: center; gap: 6px; }
-  .ctrl-label {
-    font-size: 10.5px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.7px;
-  }
-  select {
-    background: var(--panel-2); border: 1px solid var(--border); color: var(--text);
-    padding: 6px 28px 6px 10px; border-radius: 5px; font-family: inherit; font-size: 13px;
-    cursor: pointer; outline: none;
-    appearance: none; -webkit-appearance: none;
-    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path fill='%23888' d='M0 0l5 6 5-6z'/></svg>");
-    background-repeat: no-repeat; background-position: right 10px center;
-  }
-  select:focus { border-color: var(--accent); }
-
-  .toggle-btn {
-    background: var(--panel-2); border: 1px solid var(--border); color: var(--muted);
-    padding: 6px 12px; border-radius: 5px; font-size: 12.5px; cursor: pointer;
-    display: flex; align-items: center; gap: 7px;
-  }
-  .toggle-btn:hover { color: var(--text); }
-  .toggle-btn.active {
-    color: var(--accent); border-color: var(--accent);
-    background: rgba(74,158,255,0.1);
-  }
-  .toggle-btn .dot {
-    width: 8px; height: 8px; border-radius: 50%; background: var(--muted); transition: background 0.15s;
-  }
-  .toggle-btn.active .dot { background: var(--accent); box-shadow: 0 0 6px var(--accent); }
+  .play-btn-big:hover { background: #5aa8ff; }
 
   .editor {
-    background: var(--panel); border: 1px solid var(--border); border-radius: 6px;
-    padding: 14px; display: flex; flex-direction: column; gap: 10px;
+    background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
+    padding: 18px; display: flex; flex-direction: column; gap: 14px;
   }
-  .marks { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .marks { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
   .mark {
-    background: var(--panel-2); border: 1px solid var(--border); border-radius: 5px;
-    padding: 8px 10px; display: flex; flex-direction: column; gap: 6px;
+    background: var(--panel-2); border: 1px solid var(--border); border-radius: 6px;
+    padding: 12px; display: flex; flex-direction: column; gap: 8px;
   }
   .mark label {
-    font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.7px; color: var(--muted);
+    font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px; color: var(--muted);
   }
   .mark .time {
-    font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 15px;
+    font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 16px;
   }
-  .mark button { padding: 6px; font-size: 13px; }
-  .mark .link-btn {
-    background: transparent; border: 1px dashed var(--border);
-    color: var(--accent); font-size: 11.5px; padding: 4px 6px;
-    border-radius: 4px; cursor: pointer; text-align: center;
+  .mark button {
+    padding: 10px; font-size: 14px; font-weight: 500;
+    background: var(--panel); color: var(--text);
+    border: 1px solid var(--border); border-radius: 5px; cursor: pointer;
     font-family: inherit;
   }
-  .mark .link-btn:hover { background: rgba(74,158,255,0.08); border-color: var(--accent); }
-  .mark .link-btn:disabled {
-    color: var(--muted); cursor: not-allowed; opacity: 0.5;
-  }
-  .mark .link-btn:disabled:hover { background: transparent; border-color: var(--border); }
+  .mark button:hover { background: #2a2a2a; }
 
-  .lines { display: flex; flex-direction: column; gap: 6px; }
-  .line-row { display: flex; align-items: center; gap: 8px; }
-  .line-row input { font-size: 15px; padding: 9px 12px; }
-  .char-count {
-    font-size: 11px; color: var(--muted); font-family: "SF Mono", Menlo, monospace;
-    width: 54px; text-align: right;
+  .lines { display: flex; flex-direction: column; gap: 8px; }
+  input[type="text"] {
+    background: var(--panel-2); border: 1px solid var(--border); color: var(--text);
+    padding: 12px 14px; border-radius: 6px; outline: none; font-size: 15px;
+    font-family: inherit;
   }
-  .char-count.warn { color: var(--warn); }
-  .char-count.over { color: var(--error); font-weight: 600; }
+  input[type="text"]:focus { border-color: var(--accent); }
 
-  .editor-actions { display: flex; gap: 8px; }
-  .editor-actions button { flex: 1; padding: 11px; font-size: 14px; }
-
-  .hint {
-    font-size: 11.5px; color: var(--muted); text-align: center; padding-top: 2px;
+  .actions { display: flex; gap: 10px; }
+  .actions button {
+    flex: 1; padding: 14px; font-size: 15px; font-weight: 500;
+    border-radius: 6px; cursor: pointer; border: 1px solid var(--border);
+    font-family: inherit;
   }
-  .hint kbd {
-    background: var(--panel-2); border: 1px solid var(--border); border-radius: 3px;
-    padding: 1px 6px; font-family: "SF Mono", Menlo, monospace; font-size: 10.5px;
-    color: var(--text); margin: 0 1px;
-  }
+  .actions .clear-btn { background: var(--panel-2); color: var(--text); }
+  .actions .clear-btn:hover { background: var(--panel); }
+  .actions .save-btn { background: var(--accent); color: #fff; border-color: var(--accent); flex: 2; }
+  .actions .save-btn:hover { background: #5aa8ff; }
 
   .sidebar {
-    background: var(--panel); border: 1px solid var(--border); border-radius: 6px;
-    padding: 14px; display: flex; flex-direction: column; gap: 10px;
-    max-height: calc(100vh - 90px);
+    background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
+    padding: 16px; display: flex; flex-direction: column; gap: 12px;
+    max-height: calc(100vh - 60px);
   }
-  .sidebar-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .sidebar-head { display: flex; justify-content: space-between; align-items: center; }
   .sidebar-head strong { font-size: 14px; }
-  .sidebar-head .actions { display: flex; gap: 6px; }
-  .sidebar-head button { padding: 6px 10px; font-size: 12.5px; }
+  .srt-btn {
+    background: var(--accent); color: #fff; border: 1px solid var(--accent);
+    padding: 7px 14px; border-radius: 5px; cursor: pointer; font-size: 12.5px;
+    font-weight: 500; font-family: inherit;
+  }
+  .srt-btn:hover { background: #5aa8ff; }
 
   .captions-list {
     overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 6px;
-    padding-right: 2px;
   }
   .caption-row {
-    background: var(--panel-2); border: 1px solid var(--border); border-radius: 5px;
-    padding: 8px 10px; cursor: pointer; transition: background 0.1s, border-color 0.1s;
+    background: var(--panel-2); border: 1px solid var(--border); border-radius: 6px;
+    padding: 10px 12px; cursor: pointer; transition: background 0.1s, border-color 0.1s;
   }
   .caption-row:hover { background: #222; }
   .caption-row.active { border-color: var(--accent); background: #1a2230; }
-  .caption-row.editing { border-color: var(--warn); }
-
+  .caption-row.editing { border-color: #ff9b3d; }
   .caption-times {
-    font-family: "SF Mono", Menlo, monospace; font-size: 11px; color: var(--muted);
+    font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 11px; color: var(--muted);
     display: flex; justify-content: space-between; margin-bottom: 4px;
   }
   .caption-text { font-size: 13px; white-space: pre-line; }
   .caption-actions { display: flex; gap: 4px; margin-top: 6px; }
-  .caption-actions button { font-size: 11px; padding: 3px 8px; }
-
-  .empty-state { color: var(--muted); font-size: 13px; text-align: center; padding: 24px 12px; }
+  .caption-actions button {
+    font-size: 11px; padding: 3px 8px;
+    background: var(--panel); border: 1px solid var(--border);
+    color: var(--text); border-radius: 4px; cursor: pointer; font-family: inherit;
+  }
+  .caption-actions .del { color: var(--error); }
+  .empty-state { color: var(--muted); font-size: 13px; text-align: center; padding: 30px 12px; }
 
   .toast {
     position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
@@ -239,57 +164,25 @@
 
   @media (max-width: 1024px) {
     .layout { grid-template-columns: 1fr; }
-    .sidebar { max-height: 500px; }
+    .sidebar { max-height: 400px; }
   }
 </style>
 </head>
 <body>
 <div class="container">
   <header>
-    <h1>SRT Translator <span>· type subtitles → export .srt</span></h1>
-    <div class="url-row">
-      <input type="text" id="urlInput" placeholder="YouTube URL or 11-char video ID" />
-      <button onclick="loadVideo()">Load video</button>
-    </div>
+    <h1>SRT Translator</h1>
+    <button class="change-link" onclick="changeVideo()">Change video</button>
   </header>
 
   <div class="layout">
-    <div class="video-section">
+    <div class="left">
       <div id="player-wrap">
         <div id="player"></div>
         <div id="overlay" class="subtitle-overlay"></div>
       </div>
 
-      <div class="now-showing empty hidden" id="nowShowing">Subtitle preview appears here</div>
-
-      <div class="time-bar">
-        <div class="time-display" id="currentTime">00:00:00.000</div>
-        <div class="seek-group">
-          <button onclick="seekRelative(-2)" title="Back 2 seconds">−2s</button>
-          <button onclick="seekRelative(-0.5)" title="Back 0.5 seconds">−½s</button>
-          <button class="play-btn" onclick="togglePlay()" id="playBtn">⏵ Play</button>
-          <button onclick="seekRelative(0.5)" title="Forward 0.5 seconds">+½s</button>
-          <button onclick="seekRelative(2)" title="Forward 2 seconds">+2s</button>
-        </div>
-        <div class="right-controls">
-          <div class="ctrl-group">
-            <span class="ctrl-label">Speed</span>
-            <select id="speedSelect" onchange="setPlaybackRate(parseFloat(this.value))">
-              <option value="0.5">0.5×</option>
-              <option value="0.75">0.75×</option>
-              <option value="1" selected>1×</option>
-              <option value="1.25">1.25×</option>
-              <option value="1.5">1.5×</option>
-            </select>
-          </div>
-          <button class="toggle-btn active" id="overlayToggle" onclick="toggleOverlay()" title="Show subtitles overlaid on video (toggle off to show below)">
-            <span class="dot"></span>Overlay
-          </button>
-          <button class="toggle-btn active" id="autoContinueToggle" onclick="toggleAutoContinue()" title="After saving, auto-fill next caption's Start with the end of the saved one">
-            <span class="dot"></span>Auto-continue
-          </button>
-        </div>
-      </div>
+      <button class="play-btn-big" id="playBtn" onclick="togglePlay()">▶ Play</button>
 
       <div class="editor">
         <div class="marks">
@@ -297,35 +190,22 @@
             <label>Start time</label>
             <div class="time" id="startDisplay">— — : — — : — —</div>
             <button onclick="markStart()">Mark Start</button>
-            <button onclick="snapToLastEnd()" class="link-btn" id="snapBtn" title="Set start time to where the last caption ended">↑ End of last caption</button>
           </div>
           <div class="mark">
             <label>End time</label>
             <div class="time" id="endDisplay">— — : — — : — —</div>
             <button onclick="markEnd()">Mark End</button>
-            <button onclick="markEndAndSave()" class="link-btn" title="Mark End at current time and save the caption">⏎ Mark End + Save</button>
           </div>
         </div>
 
         <div class="lines">
-          <div class="line-row">
-            <input type="text" id="line1" placeholder="Line 1 — type translation here" autocomplete="off" />
-            <span class="char-count" id="count1">0</span>
-          </div>
-          <div class="line-row">
-            <input type="text" id="line2" placeholder="Line 2" autocomplete="off" maxlength="42" />
-            <span class="char-count" id="count2">0</span>
-          </div>
+          <input type="text" id="line1" placeholder="Line 1" autocomplete="off" />
+          <input type="text" id="line2" placeholder="Line 2" autocomplete="off" maxlength="42" />
         </div>
 
-        <div class="editor-actions">
-          <button onclick="clearCurrent()">Clear</button>
-          <button class="primary" onclick="saveCaption()" id="saveBtn">Save Caption</button>
-        </div>
-
-        <div class="hint">
-          Shortcuts (when not typing): <kbd>Space</kbd> play/pause · <kbd>S</kbd> mark start · <kbd>E</kbd> mark end · <kbd>←</kbd>/<kbd>→</kbd> nudge 1s (<kbd>⇧</kbd> = 0.1s)
-          <br />While typing: <kbd>Enter</kbd> save · <kbd>Tab</kbd> next line · <kbd>⌘</kbd>/<kbd>Ctrl</kbd>+<kbd>S</kbd> mark start · <kbd>⌘</kbd>/<kbd>Ctrl</kbd>+<kbd>E</kbd> mark end · <kbd>⌘</kbd>/<kbd>Ctrl</kbd>+<kbd>Space</kbd> play/pause
+        <div class="actions">
+          <button class="clear-btn" onclick="clearCurrent()">Clear</button>
+          <button class="save-btn" onclick="saveCaption()">Save Caption</button>
         </div>
       </div>
     </div>
@@ -333,15 +213,10 @@
     <div class="sidebar">
       <div class="sidebar-head">
         <strong>Captions <span id="count" style="color:var(--muted);font-weight:400">(0)</span></strong>
-        <div class="actions">
-          <button onclick="exportSRT()" class="primary">⬇ .srt</button>
-          <button onclick="importSRT()">Import</button>
-          <button onclick="clearAll()" class="danger">Clear</button>
-        </div>
+        <button class="srt-btn" onclick="exportSRT()">⬇ Download .srt</button>
       </div>
-      <input type="file" id="importFile" accept=".srt" style="display:none" onchange="handleImport(event)" />
       <div class="captions-list" id="captionsList">
-        <div class="empty-state">No captions yet. Mark a start and end time, type your translation, then click Save.</div>
+        <div class="empty-state">No captions yet.</div>
       </div>
     </div>
   </div>
@@ -357,28 +232,23 @@ let currentStart = null;
 let currentEnd = null;
 let currentVideoId = 'oNhE89V2S6o';
 let editingIdx = null;
+const MAX_LINE = 42;
 
-// ---------- Persistence ----------
-function storageKey(videoId) { return 'srt-captions-' + videoId; }
-
-function loadCaptionsForVideo(videoId) {
-  try {
-    const raw = localStorage.getItem(storageKey(videoId));
-    captions = raw ? JSON.parse(raw) : [];
-  } catch (e) { captions = []; }
+// Persistence
+function storageKey(id) { return 'srt-captions-' + id; }
+function loadCaptionsForVideo(id) {
+  try { captions = JSON.parse(localStorage.getItem(storageKey(id))) || []; }
+  catch (e) { captions = []; }
 }
-
 function persist() {
-  try { localStorage.setItem(storageKey(currentVideoId), JSON.stringify(captions)); } catch(e) {}
+  try { localStorage.setItem(storageKey(currentVideoId), JSON.stringify(captions)); } catch (e) {}
 }
 
-// Restore last-loaded video
 const lastVideoId = localStorage.getItem('srt-last-video');
 if (lastVideoId) currentVideoId = lastVideoId;
 loadCaptionsForVideo(currentVideoId);
-document.getElementById('urlInput').value = 'https://youtu.be/' + currentVideoId;
 
-// ---------- YouTube API ----------
+// YouTube API
 const tag = document.createElement('script');
 tag.src = 'https://www.youtube.com/iframe_api';
 document.body.appendChild(tag);
@@ -386,25 +256,25 @@ document.body.appendChild(tag);
 function onYouTubeIframeAPIReady() {
   player = new YT.Player('player', {
     videoId: currentVideoId,
-    width: '100%',
-    height: '100%',
+    width: '100%', height: '100%',
     playerVars: { rel: 0, modestbranding: 1, playsinline: 1 },
     events: {
       onReady: () => { playerReady = true; startTimeLoop(); },
       onStateChange: (e) => {
         const btn = document.getElementById('playBtn');
-        btn.textContent = (e.data === YT.PlayerState.PLAYING) ? '⏸ Pause' : '⏵ Play';
+        btn.textContent = (e.data === YT.PlayerState.PLAYING) ? '⏸ Pause' : '▶ Play';
       }
     }
   });
 }
 
-function loadVideo() {
-  const url = document.getElementById('urlInput').value;
+function changeVideo() {
+  const current = 'https://youtu.be/' + currentVideoId;
+  const url = prompt('Paste YouTube URL:', current);
+  if (!url) return;
   const id = extractVideoId(url);
   if (!id) { toast('Invalid YouTube URL', 'error'); return; }
-  if (id === currentVideoId) { toast('Already loaded'); return; }
-  // Save state for current video before switching
+  if (id === currentVideoId) return;
   persist();
   currentVideoId = id;
   localStorage.setItem('srt-last-video', id);
@@ -412,25 +282,19 @@ function loadVideo() {
   if (playerReady) player.loadVideoById({ videoId: id });
   renderCaptions();
   clearCurrent();
-  toast('Loaded video ' + id, 'success');
 }
 
 function extractVideoId(url) {
   if (!url) return null;
   url = url.trim();
   if (/^[a-zA-Z0-9_-]{11}$/.test(url)) return url;
-  let m = url.match(/youtu\.be\/([a-zA-Z0-9_-]{11})/);
-  if (m) return m[1];
-  m = url.match(/[?&]v=([a-zA-Z0-9_-]{11})/);
-  if (m) return m[1];
-  m = url.match(/youtube\.com\/embed\/([a-zA-Z0-9_-]{11})/);
-  if (m) return m[1];
-  m = url.match(/youtube\.com\/shorts\/([a-zA-Z0-9_-]{11})/);
-  if (m) return m[1];
+  let m = url.match(/youtu\.be\/([a-zA-Z0-9_-]{11})/); if (m) return m[1];
+  m = url.match(/[?&]v=([a-zA-Z0-9_-]{11})/); if (m) return m[1];
+  m = url.match(/youtube\.com\/embed\/([a-zA-Z0-9_-]{11})/); if (m) return m[1];
+  m = url.match(/youtube\.com\/shorts\/([a-zA-Z0-9_-]{11})/); if (m) return m[1];
   return null;
 }
 
-// ---------- Time formatting ----------
 function formatTime(seconds, srt = false) {
   if (seconds == null || isNaN(seconds)) return '— — : — — : — —';
   if (seconds < 0) seconds = 0;
@@ -443,65 +307,24 @@ function formatTime(seconds, srt = false) {
 }
 function pad(n, len) { return String(n).padStart(len, '0'); }
 
-function parseSrtTime(t) {
-  const m = t.match(/(\d+):(\d+):(\d+)[,\.](\d+)/);
-  if (!m) return null;
-  return (+m[1])*3600 + (+m[2])*60 + (+m[3]) + (+m[4])/1000;
-}
-
-// ---------- Playback ----------
 function getCurrentTime() {
   if (!playerReady) return 0;
-  try { return player.getCurrentTime() || 0; } catch(e) { return 0; }
+  try { return player.getCurrentTime() || 0; } catch (e) { return 0; }
 }
 
 function startTimeLoop() {
   setInterval(() => {
     if (!playerReady) return;
     const t = getCurrentTime();
-    document.getElementById('currentTime').textContent = formatTime(t);
-    updateNowShowing(t);
+    updateOverlay(t);
     updateActiveCaption(t);
   }, 80);
 }
 
-function updateNowShowing(t) {
+function updateOverlay(t) {
   const active = captions.find(c => t >= c.start && t <= c.end);
-  const overlay = document.getElementById('overlay');
-  const box = document.getElementById('nowShowing');
-  if (active) {
-    const text = [active.line1, active.line2].filter(Boolean).join('\n');
-    overlay.textContent = text;
-    box.textContent = text;
-    box.classList.remove('empty');
-  } else {
-    overlay.textContent = '';
-    box.textContent = 'Subtitle preview appears here';
-    box.classList.add('empty');
-  }
-}
-
-let overlayMode = localStorage.getItem('srt-overlay-mode') !== '0';
-
-function applyOverlayMode() {
-  const overlay = document.getElementById('overlay');
-  const box = document.getElementById('nowShowing');
-  const btn = document.getElementById('overlayToggle');
-  if (overlayMode) {
-    overlay.classList.remove('hidden');
-    box.classList.add('hidden');
-    btn.classList.add('active');
-  } else {
-    overlay.classList.add('hidden');
-    box.classList.remove('hidden');
-    btn.classList.remove('active');
-  }
-}
-
-function toggleOverlay() {
-  overlayMode = !overlayMode;
-  localStorage.setItem('srt-overlay-mode', overlayMode ? '1' : '0');
-  applyOverlayMode();
+  document.getElementById('overlay').textContent =
+    active ? [active.line1, active.line2].filter(Boolean).join('\n') : '';
 }
 
 function updateActiveCaption(t) {
@@ -520,20 +343,6 @@ function togglePlay() {
   else player.playVideo();
 }
 
-function seekRelative(delta) {
-  if (!playerReady) return;
-  player.seekTo(Math.max(0, getCurrentTime() + delta), true);
-}
-
-function setPlaybackRate(rate) {
-  if (!playerReady) return;
-  player.setPlaybackRate(rate);
-  const sel = document.getElementById('speedSelect');
-  if (sel && sel.value !== String(rate)) sel.value = String(rate);
-  toast('Speed: ' + rate + '×');
-}
-
-// ---------- Marking ----------
 function markStart() {
   currentStart = getCurrentTime();
   document.getElementById('startDisplay').textContent = formatTime(currentStart);
@@ -542,44 +351,6 @@ function markEnd() {
   currentEnd = getCurrentTime();
   document.getElementById('endDisplay').textContent = formatTime(currentEnd);
 }
-function markEndAndSave() {
-  markEnd();
-  saveCaption();
-}
-
-function lastCaptionEnd() {
-  if (captions.length === 0) return null;
-  // Most recent end time across all captions
-  return captions.reduce((max, c) => c.end > max ? c.end : max, 0);
-}
-
-function snapToLastEnd() {
-  const t = lastCaptionEnd();
-  if (t == null) { toast('No previous caption to snap to', 'error'); return; }
-  currentStart = t;
-  document.getElementById('startDisplay').textContent = formatTime(t);
-  toast('Start snapped to ' + formatTime(t));
-}
-
-function updateSnapButton() {
-  const btn = document.getElementById('snapBtn');
-  if (!btn) return;
-  const t = lastCaptionEnd();
-  btn.disabled = (t == null);
-  btn.textContent = (t == null) ? '↑ End of last caption' : '↑ End of last (' + formatTime(t).replace(/^00:/, '') + ')';
-}
-
-let autoContinue = localStorage.getItem('srt-auto-continue') !== '0';
-function applyAutoContinue() {
-  const btn = document.getElementById('autoContinueToggle');
-  if (btn) btn.classList.toggle('active', autoContinue);
-}
-function toggleAutoContinue() {
-  autoContinue = !autoContinue;
-  localStorage.setItem('srt-auto-continue', autoContinue ? '1' : '0');
-  applyAutoContinue();
-  toast(autoContinue ? 'Auto-continue ON' : 'Auto-continue OFF');
-}
 
 function clearCurrent() {
   currentStart = null; currentEnd = null; editingIdx = null;
@@ -587,52 +358,41 @@ function clearCurrent() {
   document.getElementById('endDisplay').textContent = '— — : — — : — —';
   document.getElementById('line1').value = '';
   document.getElementById('line2').value = '';
-  updateCharCounts();
-  document.getElementById('saveBtn').textContent = 'Save Caption';
+  document.querySelector('.save-btn').textContent = 'Save Caption';
   renderCaptions();
 }
 
 function saveCaption() {
-  if (currentStart == null || currentEnd == null) {
-    toast('Mark both Start and End times first', 'error'); return;
-  }
-  if (currentEnd <= currentStart) {
-    toast('End must be after Start', 'error'); return;
-  }
+  if (currentStart == null || currentEnd == null) { toast('Mark both Start and End first', 'error'); return; }
+  if (currentEnd <= currentStart) { toast('End must be after Start', 'error'); return; }
   const line1 = document.getElementById('line1').value.trim();
   const line2 = document.getElementById('line2').value.trim();
   if (!line1 && !line2) { toast('Type at least one line', 'error'); return; }
 
   const wasEditing = editingIdx !== null;
   const cap = { start: currentStart, end: currentEnd, line1, line2 };
-  if (wasEditing) {
-    captions[editingIdx] = cap;
-  } else {
-    captions.push(cap);
-  }
+  if (wasEditing) captions[editingIdx] = cap;
+  else captions.push(cap);
   captions.sort((a, b) => a.start - b.start);
   persist();
   clearCurrent();
 
-  // Auto-continue: pre-fill next caption's start with the just-saved end time.
-  // Skip when we were editing an existing caption (less likely the user wants this).
-  if (autoContinue && !wasEditing) {
+  // Auto-continue: pre-fill next caption's start with the just-saved end time
+  if (!wasEditing) {
     currentStart = cap.end;
     document.getElementById('startDisplay').textContent = formatTime(cap.end);
   }
 
   renderCaptions();
   document.getElementById('line1').focus();
-  toast('Caption saved', 'success');
+  toast('Saved', 'success');
 }
 
-// ---------- List rendering ----------
 function renderCaptions() {
   const list = document.getElementById('captionsList');
   document.getElementById('count').textContent = '(' + captions.length + ')';
-  updateSnapButton();
   if (captions.length === 0) {
-    list.innerHTML = '<div class="empty-state">No captions yet. Mark a start and end time, type your translation, then click Save.</div>';
+    list.innerHTML = '<div class="empty-state">No captions yet.</div>';
     return;
   }
   list.innerHTML = captions.map((c, i) => {
@@ -646,7 +406,7 @@ function renderCaptions() {
       <div class="caption-text">${escapeHtml([c.line1, c.line2].filter(Boolean).join('\n'))}</div>
       <div class="caption-actions" onclick="event.stopPropagation()">
         <button onclick="editCaption(${i})">Edit</button>
-        <button onclick="deleteCaption(${i})" class="danger">Delete</button>
+        <button onclick="deleteCaption(${i})" class="del">Delete</button>
       </div>
     </div>`;
   }).join('');
@@ -668,8 +428,7 @@ function editCaption(idx) {
   document.getElementById('endDisplay').textContent = formatTime(c.end);
   document.getElementById('line1').value = c.line1 || '';
   document.getElementById('line2').value = c.line2 || '';
-  updateCharCounts();
-  document.getElementById('saveBtn').textContent = 'Update Caption';
+  document.querySelector('.save-btn').textContent = 'Update';
   renderCaptions();
   document.getElementById('line1').focus();
 }
@@ -683,14 +442,6 @@ function deleteCaption(idx) {
   renderCaptions();
 }
 
-function clearAll() {
-  if (captions.length === 0) return;
-  if (!confirm('Delete ALL ' + captions.length + ' captions for this video? This cannot be undone.')) return;
-  captions = []; clearCurrent(); persist(); renderCaptions();
-  toast('All captions cleared');
-}
-
-// ---------- Export / Import SRT ----------
 function exportSRT() {
   if (captions.length === 0) { toast('Nothing to export', 'error'); return; }
   const sorted = [...captions].sort((a, b) => a.start - b.start);
@@ -701,79 +452,24 @@ function exportSRT() {
   const blob = new Blob([srt], { type: 'text/plain;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href = url;
-  a.download = `subtitles-${currentVideoId}.srt`;
+  a.href = url; a.download = `subtitles-${currentVideoId}.srt`;
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
   URL.revokeObjectURL(url);
-  toast('Downloaded .srt', 'success');
 }
 
-function importSRT() { document.getElementById('importFile').click(); }
-
-function handleImport(e) {
-  const file = e.target.files[0]; if (!file) return;
-  const reader = new FileReader();
-  reader.onload = () => {
-    try {
-      const parsed = parseSRT(reader.result);
-      if (parsed.length === 0) { toast('No captions parsed', 'error'); return; }
-      if (captions.length > 0 && !confirm(`Replace existing ${captions.length} captions with ${parsed.length} from file?`)) return;
-      captions = parsed; persist(); renderCaptions();
-      toast(`Imported ${parsed.length} captions`, 'success');
-    } catch (err) {
-      toast('Failed to parse SRT', 'error');
-    }
-    e.target.value = '';
-  };
-  reader.readAsText(file);
-}
-
-function parseSRT(text) {
-  const blocks = text.replace(/\r/g, '').split(/\n\n+/);
-  const out = [];
-  for (const block of blocks) {
-    const lines = block.trim().split('\n');
-    if (lines.length < 2) continue;
-    // skip index line if numeric
-    let i = 0;
-    if (/^\d+$/.test(lines[0].trim())) i = 1;
-    const timeLine = lines[i]; if (!timeLine) continue;
-    const m = timeLine.match(/(\d+:\d+:\d+[,\.]\d+)\s*-->\s*(\d+:\d+:\d+[,\.]\d+)/);
-    if (!m) continue;
-    const start = parseSrtTime(m[1]); const end = parseSrtTime(m[2]);
-    const textLines = lines.slice(i+1);
-    out.push({ start, end, line1: textLines[0] || '', line2: textLines[1] || '' });
-  }
-  return out;
-}
-
-// ---------- Character counts + line-1 overflow ----------
-const MAX_LINE = 42;
-
-function updateCharCounts() {
-  ['1','2'].forEach(n => {
-    const v = document.getElementById('line' + n).value;
-    const el = document.getElementById('count' + n);
-    el.textContent = v.length + '/' + MAX_LINE;
-    el.classList.remove('warn','over');
-    if (v.length >= MAX_LINE) el.classList.add('over');
-    else if (v.length >= MAX_LINE - 7) el.classList.add('warn');
-  });
-}
-
+// Line 1 overflow → line 2 (word-aware, cursor follows when typing at end)
 function handleLine1Input() {
   const line1 = document.getElementById('line1');
   const line2 = document.getElementById('line2');
-  if (line1.value.length <= MAX_LINE) { updateCharCounts(); return; }
+  if (line1.value.length <= MAX_LINE) return;
 
   const cursorPos = line1.selectionStart;
-  // Find last space at or before MAX_LINE so we break on a word boundary
   let breakAt = -1;
   const scanEnd = Math.min(MAX_LINE, line1.value.length - 1);
   for (let i = scanEnd; i >= 0; i--) {
     if (line1.value[i] === ' ') { breakAt = i; break; }
   }
-  if (breakAt <= 0) breakAt = MAX_LINE; // no space → hard break
+  if (breakAt <= 0) breakAt = MAX_LINE;
 
   const keep = line1.value.substring(0, breakAt).replace(/\s+$/, '');
   const overflow = line1.value.substring(breakAt).replace(/^\s+/, '');
@@ -781,9 +477,6 @@ function handleLine1Input() {
   const merged = overflow + (line2.value ? ' ' + line2.value : '');
   line2.value = merged.substring(0, MAX_LINE);
 
-  // If the cursor was inside the overflow part, move focus to line 2
-  // and position the cursor at the end of the moved text so typing continues seamlessly.
-  // Otherwise (user was editing mid-line 1), keep focus in line 1.
   if (cursorPos > breakAt) {
     line2.focus();
     const newPos = Math.min(overflow.length, line2.value.length);
@@ -792,28 +485,14 @@ function handleLine1Input() {
     const newPos = Math.min(cursorPos, line1.value.length);
     try { line1.setSelectionRange(newPos, newPos); } catch (e) {}
   }
-  updateCharCounts();
 }
-
 document.getElementById('line1').addEventListener('input', handleLine1Input);
-document.getElementById('line2').addEventListener('input', updateCharCounts);
 
-// ---------- Toast ----------
-let toastTimer = null;
-function toast(msg, type) {
-  const el = document.getElementById('toast');
-  el.textContent = msg;
-  el.className = 'toast show' + (type ? ' ' + type : '');
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => el.classList.remove('show'), 1800);
-}
-
-// ---------- Keyboard shortcuts ----------
+// Keyboard shortcuts (kept invisible — Space play/pause, S/E mark, Enter save)
 document.addEventListener('keydown', (e) => {
   const isTyping = ['INPUT','TEXTAREA'].includes(document.activeElement.tagName);
   const mod = e.metaKey || e.ctrlKey;
 
-  // Modifier-based shortcuts (work even while typing)
   if (mod) {
     if (e.key === 's' || e.key === 'S') { e.preventDefault(); markStart(); return; }
     if (e.key === 'e' || e.key === 'E') { e.preventDefault(); markEnd(); return; }
@@ -822,7 +501,6 @@ document.addEventListener('keydown', (e) => {
   }
 
   if (isTyping) {
-    // Enter in line1 → line2, in line2 → save
     if (e.key === 'Enter') {
       e.preventDefault();
       if (document.activeElement.id === 'line1') document.getElementById('line2').focus();
@@ -831,18 +509,22 @@ document.addEventListener('keydown', (e) => {
     return;
   }
 
-  // Plain shortcuts when not typing
   if (e.key === ' ' || e.code === 'Space') { e.preventDefault(); togglePlay(); }
   else if (e.key === 's' || e.key === 'S') { e.preventDefault(); markStart(); }
   else if (e.key === 'e' || e.key === 'E') { e.preventDefault(); markEnd(); }
-  else if (e.key === 'ArrowLeft') { e.preventDefault(); seekRelative(e.shiftKey ? -0.1 : -1); }
-  else if (e.key === 'ArrowRight') { e.preventDefault(); seekRelative(e.shiftKey ? 0.1 : 1); }
 });
 
+// Toast
+let toastTimer = null;
+function toast(msg, type) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'toast show' + (type ? ' ' + type : '');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 1500);
+}
+
 renderCaptions();
-updateCharCounts();
-applyOverlayMode();
-applyAutoContinue();
 </script>
 </body>
 </html>
