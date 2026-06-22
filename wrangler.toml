@@ -1,0 +1,8 @@
+# Root config: serve the static WEBSITE via Cloudflare static assets.
+# `npx wrangler deploy` uploads the files below and serves index.html.
+# (The translation API Worker has its own separate config in worker/wrangler.toml.)
+name = "subcaptions"
+compatibility_date = "2026-01-01"
+
+[assets]
+directory = "./"
