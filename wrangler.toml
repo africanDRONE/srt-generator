@@ -1,4 +1,4 @@
-name = "subtitle-translate"
+name = "subcaptions"
 main = "worker/translate.js"
 compatibility_date = "2026-01-01"
 
