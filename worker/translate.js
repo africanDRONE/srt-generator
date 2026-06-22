@@ -72,7 +72,7 @@ export default {
 
     const body = {
       model,
-      max_tokens: 8000,
+      max_tokens: 16000,
       thinking: { type: "disabled" }, // translation is a transform, not a reasoning task
       system,
       messages: [{ role: "user", content: userMsg }],
@@ -91,23 +91,34 @@ export default {
       },
     };
 
-    let resp;
-    try {
-      resp = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: {
-          "x-api-key": env.ANTHROPIC_API_KEY,
-          "anthropic-version": "2023-06-01",
-          "content-type": "application/json",
-        },
-        body: JSON.stringify(body),
-      });
-    } catch {
-      return json({ error: "Upstream request failed" }, 502, cors);
+    // Retry transient upstream failures (network error, 429, 5xx) up to 3 times
+    // so a momentary Anthropic blip doesn't fail the whole translation.
+    const callAnthropic = async () => {
+      try {
+        return await fetch("https://api.anthropic.com/v1/messages", {
+          method: "POST",
+          headers: {
+            "x-api-key": env.ANTHROPIC_API_KEY,
+            "anthropic-version": "2023-06-01",
+            "content-type": "application/json",
+          },
+          body: JSON.stringify(body),
+        });
+      } catch {
+        return null;
+      }
+    };
+    let resp = null;
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      resp = await callAnthropic();
+      if (resp && resp.ok) break;
+      const retryable = !resp || resp.status === 429 || resp.status >= 500;
+      if (!retryable || attempt === 3) break;
+      await new Promise((r) => setTimeout(r, 500 * attempt));
     }
-
-    if (resp.status === 429) return json({ error: "Rate limited upstream" }, 429, cors);
+    if (!resp) return json({ error: "Upstream request failed" }, 502, cors);
     if (!resp.ok) {
+      if (resp.status === 429) return json({ error: "Rate limited upstream" }, 429, cors);
       return json({ error: "Translation provider error", status: resp.status }, 502, cors);
     }
 

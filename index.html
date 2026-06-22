@@ -648,7 +648,7 @@ async function translateCaptions(){
   try {
     const texts = captions.map(c => [c.line1,c.line2].filter(Boolean).join("\n"));
     const out = [];
-    for (let i=0;i<texts.length;i+=40){ const t = await translateBatch(texts.slice(i,i+40), code); out.push(...t); }
+    for (let i=0;i<texts.length;i+=20){ const t = await translateBatch(texts.slice(i,i+20), code); out.push(...t); }
     translations[code] = { name: meta.name, flag: meta.flag, lines: out };
     persist();
     renderColumns();
