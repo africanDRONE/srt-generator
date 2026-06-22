@@ -716,10 +716,17 @@ function confirmModal(msg, okLabel){
 // loaded yet, so a real Solo/Team user is never wrongly blocked by event timing.
 async function ensurePaid(){
   if (IS_PRO) return true;
-  let tier = (window.SubAuth && SubAuth.tier) || "free";
-  if (tier !== "solo" && tier !== "team" && window.SubAuth && SubAuth.refresh) {
-    try { await SubAuth.refresh(); tier = SubAuth.tier || "free"; } catch(e){}
-  }
+  // Authoritative, race-free check: ask the billing server directly with the
+  // current token. The in-memory tier can briefly read "free" while the session
+  // reloads in the background, which was wrongly blocking paid users.
+  try {
+    const token = window.SubAuth && SubAuth.token;
+    if (token) {
+      const r = await fetch("https://subcaptions.onrender.com/billing/me", { headers: { Authorization: "Bearer " + token } });
+      if (r.ok) { const t = (await r.json()).tier; if (t === "solo" || t === "team") { IS_PRO = true; return true; } }
+    }
+  } catch (e) {}
+  const tier = (window.SubAuth && SubAuth.tier) || "free";
   if (tier === "solo" || tier === "team") { IS_PRO = true; return true; }
   return false;
 }
@@ -881,7 +888,7 @@ function toast(msg, type){
   const qp = new URLSearchParams(location.search);
   if (qp.get("pro") === "1") IS_PRO = true; // dev/test flag
   // Real entitlement: lib/auth.js broadcasts the signed-in user's tier.
-  document.addEventListener("subauth", (e) => { IS_PRO = (e.detail.tier && e.detail.tier !== "free") || qp.get("pro") === "1"; });
+  document.addEventListener("subauth", (e) => { if ((e.detail.tier && e.detail.tier !== "free") || qp.get("pro") === "1") IS_PRO = true; });
   if (qp.get("v")) { document.body.classList.add("editing-tab"); startEditor(qp.get("v")); }
   else renderRecent();
 
