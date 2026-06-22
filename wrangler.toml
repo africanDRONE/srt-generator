@@ -1,0 +1,12 @@
+name = "subtitle-translate"
+main = "worker/translate.js"
+compatibility_date = "2026-01-01"
+
+# Public config (non-secret). Override per environment as needed.
+[vars]
+MODEL = "claude-opus-4-8"      # cost note: see worker/translate.js — haiku/sonnet are far cheaper
+ALLOWED_ORIGIN = "*"            # set to "https://yourdomain.com" before launch
+MAX_CUES = "60"                 # hard per-request cap (abuse guard)
+
+# Secret (do NOT put the key here). Set it with:
+#   wrangler secret put ANTHROPIC_API_KEY

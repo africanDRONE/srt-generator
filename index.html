@@ -3,554 +3,854 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>SRT Translator</title>
+<title>SubCaptions: Subtitle any video, without leaving your browser</title>
+<meta name="description" content="Subtitle any video by hand, for when auto-captions miss the mark or your language isn't supported by YouTube or Adobe. Paste a link, caption on top of the video, export .srt or .vtt, hand it to a translator, or translate into 50+ languages side by side. Free, no signup." />
+<link rel="canonical" href="https://example.com/" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg: #141414;
-    --panel: #1f1f1f;
-    --panel-2: #181818;
-    --border: #2e2e2e;
-    --text: #ececec;
-    --muted: #888;
-    --accent: #4a9eff;
-    --error: #ff5a5a;
-    --success: #44dd88;
+    --bg:#f5f6fd; --surface:#fff; --surface-2:#f3f4fb; --border:#e7e8f3; --border-strong:#d8dae9;
+    --text:#161731; --text-soft:#41435f; --muted:#7d8099;
+    --brand1:#6366f1; --brand2:#a855f7; --brand3:#ec4899;
+    --grad:linear-gradient(135deg,#6366f1 0%,#a855f7 55%,#ec4899 100%);
+    --grad-soft:linear-gradient(135deg,rgba(99,102,241,.12),rgba(236,72,153,.12));
+    --success:#10b981; --error:#ef4444;
+    --shadow-sm:0 2px 8px rgba(80,70,160,.06); --shadow:0 14px 40px rgba(80,70,160,.12); --shadow-lg:0 30px 70px rgba(80,70,160,.18);
+    --radius:16px; --radius-lg:22px;
+    --font-display:"Space Grotesk",-apple-system,system-ui,sans-serif; --font-body:"Inter",-apple-system,BlinkMacSystemFont,system-ui,sans-serif;
   }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  html, body { height: 100%; }
-  body {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
-    background: var(--bg);
-    color: var(--text);
-    line-height: 1.4;
-    font-size: 14px;
-  }
-  .container { max-width: 1500px; margin: 0 auto; padding: 16px; }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{font-family:var(--font-body);color:var(--text);background:var(--bg);line-height:1.55;font-size:15px;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+  body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;background:radial-gradient(680px 520px at 12% -5%,rgba(99,102,241,.20),transparent 60%),radial-gradient(620px 520px at 100% 0%,rgba(236,72,153,.16),transparent 55%),radial-gradient(700px 600px at 75% 105%,rgba(168,85,247,.14),transparent 60%)}
+  a{color:var(--brand1);text-decoration:none}a:hover{text-decoration:underline}
+  .wrap{max-width:1180px;margin:0 auto;padding:0 22px}
 
-  header {
-    display: flex; align-items: center; justify-content: space-between;
-    margin-bottom: 18px;
-  }
-  header h1 {
-    font-size: 14px; font-weight: 500; color: var(--muted);
-    letter-spacing: 0.3px;
-  }
-  .change-link {
-    font-size: 12px; color: var(--muted); background: none; border: none;
-    cursor: pointer; padding: 4px 10px; border-radius: 4px;
-    font-family: inherit;
-  }
-  .change-link:hover { color: var(--text); background: var(--panel); }
+  header.nav{position:sticky;top:0;z-index:50;backdrop-filter:saturate(180%) blur(14px);background:rgba(245,246,253,.72);border-bottom:1px solid var(--border)}
+  .nav-inner{display:flex;align-items:center;justify-content:space-between;height:64px}
+  .brand{display:flex;align-items:center;gap:10px;font-family:var(--font-display);font-weight:700;font-size:19px;color:var(--text)}.brand:hover{text-decoration:none}
+  .brand .mark{width:32px;height:32px;border-radius:9px;background:var(--grad);display:flex;align-items:center;justify-content:center;color:#fff;font-size:17px;box-shadow:var(--shadow-sm)}
+  .nav-links{display:flex;align-items:center;gap:26px}
+  .nav-links a{color:var(--text-soft);font-size:14.5px;font-weight:500}.nav-links a:hover{color:var(--text);text-decoration:none}
+  .nav-cta{background:var(--text);color:#fff!important;padding:9px 18px;border-radius:10px;font-weight:600}.nav-cta:hover{background:#2c2e4d}
 
-  .layout {
-    display: grid; grid-template-columns: 1fr 380px; gap: 18px;
-  }
-  .left { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+  .hero{text-align:center;padding:60px 0 26px}
+  .eyebrow{display:inline-flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--border);box-shadow:var(--shadow-sm);padding:7px 15px;border-radius:999px;font-size:13px;font-weight:600;color:var(--text-soft);margin-bottom:22px}
+  .eyebrow .dot{width:7px;height:7px;border-radius:50%;background:var(--success);box-shadow:0 0 0 3px rgba(16,185,129,.18)}
+  h1.hero-title{font-family:var(--font-display);font-size:clamp(34px,5.4vw,60px);font-weight:700;line-height:1.04;letter-spacing:-1.5px;margin-bottom:18px}
+  .gradient-text{background:var(--grad);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+  .hero-sub{font-size:clamp(16px,2vw,19px);color:var(--text-soft);max-width:660px;margin:0 auto 30px}.hero-sub strong{color:var(--text);font-weight:600}
+  .url-launch{max-width:640px;margin:0 auto;display:flex;gap:10px;background:var(--surface);padding:9px;border-radius:16px;box-shadow:var(--shadow);border:1px solid var(--border)}
+  .url-launch input{flex:1;border:none;outline:none;background:transparent;font-size:16px;padding:12px 14px;color:var(--text);font-family:inherit}
+  .url-launch input::placeholder{color:var(--muted)}
+  .btn{cursor:pointer;font-family:inherit;font-weight:600;border:none;border-radius:12px;transition:transform .12s ease,box-shadow .12s ease,background .15s}
+  .btn:active{transform:translateY(1px)}
+  .btn-grad{background:var(--grad);color:#fff;padding:13px 26px;font-size:16px;box-shadow:0 8px 22px rgba(124,58,237,.35);white-space:nowrap}
+  .btn-grad:hover{box-shadow:0 12px 30px rgba(124,58,237,.45);transform:translateY(-1px)}
+  .hero-foot{margin-top:14px;font-size:13.5px;color:var(--muted);display:flex;gap:18px;justify-content:center;flex-wrap:wrap}
+  .hero-foot span{display:inline-flex;align-items:center;gap:6px}
+  .sources{margin-top:18px;font-size:12.5px;color:var(--muted)}
+  .sources b{color:var(--text-soft);font-weight:600}
+  .try-sample{background:none;border:none;color:var(--brand1);cursor:pointer;font:inherit;font-weight:600;font-size:13.5px}.try-sample:hover{text-decoration:underline}
 
-  #player-wrap {
-    position: relative; width: 100%; aspect-ratio: 16/9;
-    background: #000; border-radius: 8px; overflow: hidden;
-  }
-  #player { width: 100%; height: 100%; }
+  .hero-visual{max-width:760px;margin:40px auto 0;position:relative}
+  .mock-video{position:relative;aspect-ratio:16/9;border-radius:var(--radius-lg);background:linear-gradient(150deg,#1e1b3a,#2d2150 55%,#3b1d44);box-shadow:var(--shadow-lg);overflow:hidden;border:1px solid rgba(255,255,255,.1)}
+  .mock-video .play{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:76px;height:76px;border-radius:50%;background:rgba(255,255,255,.16);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;border:1px solid rgba(255,255,255,.25)}
+  .mock-video .play::after{content:"";border-left:22px solid #fff;border-top:13px solid transparent;border-bottom:13px solid transparent;margin-left:5px}
+  .mock-cap{position:absolute;bottom:11%;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.62);color:#fff;padding:10px 20px;border-radius:10px;font-size:clamp(14px,2.2vw,20px);font-weight:600;white-space:nowrap}
+  .mock-progress{position:absolute;bottom:0;left:0;right:0;height:5px;background:rgba(255,255,255,.18)}.mock-progress::before{content:"";position:absolute;left:0;top:0;bottom:0;width:42%;background:var(--grad)}
+  .float-card{position:absolute;background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow);padding:12px 15px;font-size:13px;display:flex;align-items:center;gap:10px;font-weight:600}
+  .float-card .ic{width:30px;height:30px;border-radius:8px;background:var(--grad-soft);display:flex;align-items:center;justify-content:center;font-size:15px}
+  .float-card.fc1{top:14%;left:-34px}.float-card.fc2{bottom:16%;right:-30px}
+  @media(max-width:720px){.float-card{display:none}}
 
-  .subtitle-overlay {
-    position: absolute; bottom: 12%; left: 6%; right: 6%; text-align: center;
-    color: #fff; font-size: clamp(15px, 2.6vw, 28px); font-weight: 600;
-    line-height: 1.3; white-space: pre-line; pointer-events: none; z-index: 2;
-    letter-spacing: 0.2px;
-    text-shadow:
-      -2px -2px 0 #000, 2px -2px 0 #000,
-      -2px 2px 0 #000, 2px 2px 0 #000,
-      0 0 10px rgba(0,0,0,0.95);
-  }
+  #editor{display:none;padding:24px 0 10px}#editor.show{display:block}
+  body.editing-tab #hero,body.editing-tab #why,body.editing-tab #how,body.editing-tab #features,body.editing-tab .cta-band{display:none}
+  body.editing-tab #editor{padding-top:18px}
+  .editor-grid{display:grid;grid-template-columns:minmax(0,560px) minmax(0,1fr);gap:20px;align-items:start}
+  .left-col{display:flex;flex-direction:column;gap:16px;min-width:0}
+  .right-col{display:flex;flex-direction:column;gap:12px;min-width:0}
+  .panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow-sm)}
+  #player-wrap{position:relative;width:100%;aspect-ratio:16/9;background:#0b0b14;border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow)}
+  #player-host{width:100%;height:100%}
+  #player-host iframe,#player-host video,#player-host>div{width:100%;height:100%;border:0;display:block;background:#000}
+  .subtitle-overlay{position:absolute;bottom:10%;left:6%;right:6%;text-align:center;color:#fff;font-size:clamp(16px,2.7vw,30px);font-weight:700;line-height:1.3;white-space:pre-line;pointer-events:none;z-index:2;text-shadow:-2px -2px 0 #000,2px -2px 0 #000,-2px 2px 0 #000,2px 2px 0 #000,0 0 12px rgba(0,0,0,.9)}
+  .transport{display:flex;gap:10px}
+  .transport .btn{flex:1;padding:16px;font-size:15px;display:flex;flex-direction:column;align-items:center;gap:2px}
+  .scrub{background:var(--surface);border:1px solid var(--border-strong);color:var(--text);min-width:92px;flex:0 0 auto}.scrub:hover{background:var(--surface-2)}
+  .scrub .lbl{font-size:11px;color:var(--muted);font-weight:500}.scrub .arrow{font-size:18px}
+  .play-big{background:var(--text);color:#fff;font-size:17px}.play-big:hover{background:#2c2e4d}
 
-  .transport { display: flex; gap: 10px; align-items: stretch; }
-  .play-btn-big {
-    background: var(--accent); color: #fff; border: none;
-    padding: 20px; border-radius: 8px; font-size: 20px; font-weight: 600;
-    cursor: pointer; flex: 1; letter-spacing: 0.5px;
-    transition: background 0.1s; font-family: inherit;
-  }
-  .play-btn-big:hover { background: #5aa8ff; }
-  .scrub-btn {
-    background: var(--panel); color: var(--text); border: 1px solid var(--border);
-    border-radius: 8px; cursor: pointer; font-family: inherit;
-    font-size: 15px; font-weight: 600; padding: 0 24px; min-width: 96px;
-    display: flex; flex-direction: column; align-items: center; justify-content: center;
-    gap: 2px; line-height: 1.1; transition: background 0.1s;
-  }
-  .scrub-btn:hover { background: #2a2a2a; }
-  .scrub-btn .arrow { font-size: 20px; }
-  .scrub-btn .lbl { font-size: 11px; color: var(--muted); }
+  .control-card{padding:18px;display:flex;flex-direction:column;gap:14px}
+  .marks{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .mark{background:var(--surface-2);border:1px solid var(--border);border-radius:12px;padding:13px;display:flex;flex-direction:column;gap:9px}
+  .mark label{font-size:11px;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);font-weight:600}
+  .mark .time{font-family:"SF Mono",Menlo,monospace;font-size:16px;font-weight:600;color:var(--text)}
+  .mark .btn{padding:10px;font-size:13.5px;background:var(--surface);border:1px solid var(--border-strong);color:var(--text-soft)}.mark .btn:hover{background:#fff;border-color:var(--brand1);color:var(--brand1)}
+  .lines{display:flex;flex-direction:column;gap:9px}
+  .lines input{background:var(--surface-2);border:1px solid var(--border);color:var(--text);padding:13px 15px;border-radius:11px;outline:none;font-size:15px;font-family:inherit}
+  .lines input:focus{border-color:var(--brand1);background:#fff;box-shadow:0 0 0 3px rgba(99,102,241,.12)}
+  .actions{display:flex;gap:10px}.actions .btn{padding:14px;font-size:15px}
+  .clear-btn{flex:1;background:var(--surface-2);border:1px solid var(--border);color:var(--text-soft)}.clear-btn:hover{background:#fff}
+  .save-btn{flex:2;background:var(--grad);color:#fff;box-shadow:0 8px 22px rgba(124,58,237,.3)}.save-btn:hover{transform:translateY(-1px)}
+  .translate-bar{background:var(--grad-soft);border:1px solid rgba(168,85,247,.25);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:9px}
+  .translate-bar .tb-title{font-size:12.5px;font-weight:700;color:var(--brand2);display:flex;align-items:center;gap:6px}
+  .translate-bar .tb-row{display:flex;gap:8px}
+  .translate-bar select{flex:1;padding:9px 11px;border-radius:9px;border:1px solid var(--border-strong);background:#fff;font-family:inherit;font-size:13.5px;color:var(--text);outline:none}
+  .translate-bar .btn{background:var(--brand2);color:#fff;padding:9px 14px;font-size:13px;white-space:nowrap}.translate-bar .btn:hover{background:#9333ea}.translate-bar .btn:disabled{opacity:.55;cursor:not-allowed}
+  .kbd-hint{font-size:11.5px;color:var(--muted);text-align:center}
+  .kbd-hint kbd{background:var(--surface-2);border:1px solid var(--border-strong);border-bottom-width:2px;border-radius:5px;padding:1px 6px;font-family:"SF Mono",monospace;font-size:11px;color:var(--text-soft)}
+  .auto-btn{background:#fff;border:1px solid var(--brand2);color:var(--brand2);padding:12px;font-size:14px;display:flex;align-items:center;justify-content:center;gap:8px}
+  .auto-btn:hover{background:var(--grad-soft)}
+  .auto-btn:disabled{opacity:.6;cursor:not-allowed}
+  .pro-tag{background:var(--grad);color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:999px;letter-spacing:.4px}
+  .lock-banner{display:none;background:#fef3c7;border:1px solid #fcd34d;color:#92400e;border-radius:12px;padding:12px 16px;margin-bottom:16px;font-size:13.5px;font-weight:500}
+  .lock-banner.show{display:block}
+  .lock-banner a{color:#92400e;font-weight:700;text-decoration:underline}
 
-  .editor {
-    background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
-    padding: 18px; display: flex; flex-direction: column; gap: 14px;
-  }
-  .marks { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-  .mark {
-    background: var(--panel-2); border: 1px solid var(--border); border-radius: 6px;
-    padding: 12px; display: flex; flex-direction: column; gap: 8px;
-  }
-  .mark label {
-    font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px; color: var(--muted);
-  }
-  .mark .time {
-    font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 16px;
-  }
-  .mark button {
-    padding: 10px; font-size: 14px; font-weight: 500;
-    background: var(--panel); color: var(--text);
-    border: 1px solid var(--border); border-radius: 5px; cursor: pointer;
-    font-family: inherit;
-  }
-  .mark button:hover { background: #2a2a2a; }
+  /* side-by-side language columns */
+  .columns-head{display:flex;align-items:center;justify-content:space-between;margin:22px 0 10px;gap:12px;flex-wrap:wrap}
+  .columns-head h3{font-family:var(--font-display);font-size:17px}
+  .columns-head .hint{font-size:12.5px;color:var(--muted)}
+  .columns{display:flex;gap:14px;overflow-x:auto;padding:4px 4px 12px;scroll-behavior:smooth}
+  .lang-col{flex:0 0 300px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow-sm);display:flex;flex-direction:column;max-height:520px;overflow:hidden}
+  .lang-col.source{border-color:var(--border-strong)}
+  .col-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:12px 14px;border-bottom:1px solid var(--border);background:var(--surface)}
+  .col-title{font-weight:700;font-size:14px;display:flex;align-items:center;gap:7px}
+  .col-title .flag{font-size:15px}
+  .col-dl{display:flex;gap:6px}
+  .col-dl button,.col-x{cursor:pointer;font-family:inherit;border:1px solid var(--border-strong);background:var(--surface-2);color:var(--text-soft);border-radius:7px;padding:5px 9px;font-size:12px;font-weight:600}
+  .col-dl button:hover{border-color:var(--brand1);color:var(--brand1);background:#fff}
+  .col-x{padding:5px 8px;color:var(--muted);margin-left:4px}.col-x:hover{border-color:var(--error);color:var(--error)}
+  .col-body{overflow-y:auto;flex:1;padding:10px;display:flex;flex-direction:column;gap:7px}
+  .cue-cell{border:1px solid var(--border);border-radius:9px;padding:7px 9px;background:var(--surface-2);transition:border-color .1s,background .1s}
+  .cue-cell.active{border-color:var(--brand1);background:#fff;box-shadow:0 0 0 3px rgba(99,102,241,.1)}
+  .cue-time{font-family:"SF Mono",Menlo,monospace;font-size:10px;color:var(--muted);display:flex;justify-content:space-between;margin-bottom:4px;cursor:pointer}
+  .cue-time:hover{color:var(--brand1)}
+  .cue-tx{width:100%;border:none;background:transparent;resize:vertical;min-height:34px;font-family:inherit;font-size:13px;color:var(--text);outline:none;line-height:1.4;padding:0}
+  .cue-tx::placeholder{color:var(--muted)}
+  .col-empty{color:var(--muted);font-size:13px;text-align:center;padding:30px 14px}
+  .col-empty .big{font-size:28px;margin-bottom:8px;opacity:.6}
+  .col-loading{padding:20px;text-align:center;color:var(--brand2);font-size:13px;font-weight:600}
 
-  .lines { display: flex; flex-direction: column; gap: 8px; }
-  input[type="text"] {
-    background: var(--panel-2); border: 1px solid var(--border); color: var(--text);
-    padding: 12px 14px; border-radius: 6px; outline: none; font-size: 15px;
-    font-family: inherit;
-  }
-  input[type="text"]:focus { border-color: var(--accent); }
+  .section{padding:64px 0 10px}
+  .section h2{font-family:var(--font-display);font-size:clamp(26px,3.4vw,38px);text-align:center;letter-spacing:-0.6px;margin-bottom:12px}
+  .section .lead{text-align:center;color:var(--text-soft);max-width:560px;margin:0 auto 40px;font-size:16px}
+  .steps3{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+  .step{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:26px;box-shadow:var(--shadow-sm);transition:transform .15s,box-shadow .15s}
+  .step:hover{transform:translateY(-4px);box-shadow:var(--shadow)}
+  .step .num{width:38px;height:38px;border-radius:11px;background:var(--grad);color:#fff;font-family:var(--font-display);font-weight:700;font-size:18px;display:flex;align-items:center;justify-content:center;margin-bottom:14px;box-shadow:0 6px 16px rgba(124,58,237,.3)}
+  .step h3{font-size:18px;margin-bottom:6px;font-family:var(--font-display)}.step p{color:var(--text-soft);font-size:14.5px}
+  .feature-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+  .feat{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:24px;box-shadow:var(--shadow-sm)}
+  .feat .ic{width:46px;height:46px;border-radius:13px;background:var(--grad-soft);display:flex;align-items:center;justify-content:center;font-size:22px;margin-bottom:14px}
+  .feat h3{font-size:16.5px;margin-bottom:6px;font-family:var(--font-display)}.feat p{color:var(--text-soft);font-size:14px}
+  .cta-band{margin:70px 0 20px;background:var(--grad);border-radius:var(--radius-lg);padding:50px 30px;text-align:center;color:#fff;box-shadow:var(--shadow-lg)}
+  .cta-band h2{font-family:var(--font-display);font-size:clamp(24px,3.2vw,34px);margin-bottom:10px;letter-spacing:-0.5px}
+  .cta-band p{opacity:.92;margin-bottom:22px;font-size:16px}
+  .cta-band .btn{background:#fff;color:var(--brand2);padding:14px 30px;font-size:16px;box-shadow:0 10px 30px rgba(0,0,0,.18)}.cta-band .btn:hover{transform:translateY(-2px)}
+  footer.site{margin-top:50px;padding:30px 0;border-top:1px solid var(--border);color:var(--muted);font-size:13.5px;text-align:center}footer.site a{color:var(--text-soft);margin:0 9px}
+  .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(8px);background:var(--text);color:#fff;padding:12px 22px;border-radius:12px;font-size:14px;font-weight:500;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:200;box-shadow:var(--shadow)}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}.toast.error{background:var(--error)}.toast.success{background:var(--success)}
+  .demo-flag{display:none;max-width:640px;margin:14px auto 0;font-size:12.5px;color:#92400e;background:#fef3c7;border:1px solid #fcd34d;border-radius:10px;padding:9px 14px;text-align:center}.demo-flag.show{display:block}
+  .hidden{display:none!important}
 
-  .actions { display: flex; gap: 10px; }
-  .actions button {
-    flex: 1; padding: 14px; font-size: 15px; font-weight: 500;
-    border-radius: 6px; cursor: pointer; border: 1px solid var(--border);
-    font-family: inherit;
-  }
-  .actions .clear-btn { background: var(--panel-2); color: var(--text); }
-  .actions .clear-btn:hover { background: var(--panel); }
-  .actions .save-btn { background: var(--accent); color: #fff; border-color: var(--accent); flex: 2; }
-  .actions .save-btn:hover { background: #5aa8ff; }
-
-  .sidebar {
-    background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
-    padding: 16px; display: flex; flex-direction: column; gap: 12px;
-    max-height: calc(100vh - 60px);
-  }
-  .sidebar-head { display: flex; justify-content: space-between; align-items: center; }
-  .sidebar-head strong { font-size: 14px; }
-  .srt-btn {
-    background: var(--accent); color: #fff; border: 1px solid var(--accent);
-    padding: 7px 14px; border-radius: 5px; cursor: pointer; font-size: 12.5px;
-    font-weight: 500; font-family: inherit;
-  }
-  .srt-btn:hover { background: #5aa8ff; }
-
-  .captions-list {
-    overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 6px;
-  }
-  .caption-row {
-    background: var(--panel-2); border: 1px solid var(--border); border-radius: 6px;
-    padding: 10px 12px; cursor: pointer; transition: background 0.1s, border-color 0.1s;
-  }
-  .caption-row:hover { background: #222; }
-  .caption-row.active { border-color: var(--accent); background: #1a2230; }
-  .caption-row.editing { border-color: #ff9b3d; }
-  .caption-times {
-    font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 11px; color: var(--muted);
-    display: flex; justify-content: space-between; margin-bottom: 4px;
-  }
-  .caption-text { font-size: 13px; white-space: pre-line; }
-  .caption-actions { display: flex; gap: 4px; margin-top: 6px; }
-  .caption-actions button {
-    font-size: 11px; padding: 3px 8px;
-    background: var(--panel); border: 1px solid var(--border);
-    color: var(--text); border-radius: 4px; cursor: pointer; font-family: inherit;
-  }
-  .caption-actions .del { color: var(--error); }
-  .empty-state { color: var(--muted); font-size: 13px; text-align: center; padding: 30px 12px; }
-
-  .toast {
-    position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
-    background: var(--panel); border: 1px solid var(--border); padding: 10px 18px;
-    border-radius: 6px; font-size: 13px; opacity: 0; pointer-events: none;
-    transition: opacity 0.2s; z-index: 100;
-  }
-  .toast.show { opacity: 1; }
-  .toast.error { border-color: var(--error); color: var(--error); }
-  .toast.success { border-color: var(--success); color: var(--success); }
-
-  @media (max-width: 1024px) {
-    .layout { grid-template-columns: 1fr; }
-    .sidebar { max-height: 400px; }
-  }
+  @media(max-width:940px){.editor-grid{grid-template-columns:1fr}.steps3,.feature-grid{grid-template-columns:1fr}}
+  @media(max-width:620px){.nav-links a:not(.nav-cta){display:none}.url-launch{flex-direction:column}.url-launch .btn-grad{width:100%}}
 </style>
 </head>
 <body>
-<div class="container">
-  <header>
-    <h1>SRT Translator</h1>
-    <button class="change-link" onclick="changeVideo()">Change video</button>
-  </header>
-
-  <div class="layout">
-    <div class="left">
-      <div id="player-wrap">
-        <div id="player"></div>
-        <div id="overlay" class="subtitle-overlay"></div>
-      </div>
-
-      <div class="transport">
-        <button class="scrub-btn" onclick="seekRelative(-3)" title="Back 3 seconds">
-          <span class="arrow">⏪</span><span class="lbl">−3s</span>
-        </button>
-        <button class="play-btn-big" id="playBtn" onclick="togglePlay()">▶ Play</button>
-        <button class="scrub-btn" onclick="seekRelative(3)" title="Forward 3 seconds">
-          <span class="arrow">⏩</span><span class="lbl">+3s</span>
-        </button>
-      </div>
-
-      <div class="editor">
-        <div class="marks">
-          <div class="mark">
-            <label>Start time</label>
-            <div class="time" id="startDisplay">— — : — — : — —</div>
-            <button onclick="markStart()">Mark Start</button>
-          </div>
-          <div class="mark">
-            <label>End time</label>
-            <div class="time" id="endDisplay">— — : — — : — —</div>
-            <button onclick="markEnd()">Mark End</button>
-          </div>
-        </div>
-
-        <div class="lines">
-          <input type="text" id="line1" placeholder="Line 1" autocomplete="off" />
-          <input type="text" id="line2" placeholder="Line 2" autocomplete="off" maxlength="42" />
-        </div>
-
-        <div class="actions">
-          <button class="clear-btn" onclick="clearCurrent()">Clear</button>
-          <button class="save-btn" onclick="saveCaption()">Save Caption</button>
-        </div>
-      </div>
-    </div>
-
-    <div class="sidebar">
-      <div class="sidebar-head">
-        <strong>Captions <span id="count" style="color:var(--muted);font-weight:400">(0)</span></strong>
-        <button class="srt-btn" onclick="exportSRT()">⬇ Download .srt</button>
-      </div>
-      <div class="captions-list" id="captionsList">
-        <div class="empty-state">No captions yet.</div>
-      </div>
-    </div>
+<header class="nav">
+  <div class="wrap nav-inner">
+    <a class="brand" href="/"><span class="mark">🎬</span> SubCaptions</a>
+    <nav class="nav-links">
+      <a href="#why">Why</a>
+      <a href="#how">How it works</a>
+      <a href="/translate.html">Translate a file</a>
+      <a href="/pricing.html">Pricing</a>
+      <a href="#" id="account-link" data-account>Sign in</a>
+      <a href="#top" class="nav-cta" onclick="document.getElementById('yt-url').focus();return false;">Start free</a>
+    </nav>
   </div>
+</header>
+
+<div class="wrap" id="top">
+  <section class="hero" id="hero">
+    <h1 class="hero-title">Subtitle any video,<br><span class="gradient-text">without leaving your browser</span></h1>
+    <p class="hero-sub">Paste a link, type captions <strong>in time with the video</strong>, and export a clean <strong>.srt</strong>. Do it yourself, hand the link to a translator, or translate into 50+ languages side by side.</p>
+
+    <div class="url-launch">
+      <input type="text" id="yt-url" placeholder="Paste a video link to start…" autocomplete="off" />
+      <button class="btn btn-grad" id="start-btn">Start captioning →</button>
+    </div>
+    <div class="sources">Works with <b>YouTube</b>, <b>Vimeo</b>, <b>Rushes.cc</b>, <b>Dropbox</b>, <b>Google Drive</b>, and direct video files (.mp4, .webm, .mov).</div>
+    <div class="hero-foot">
+      <span>✨ Free, no account</span>
+      <span>🔒 Captions stay in your browser</span>
+      <button class="try-sample" id="try-sample">▶ Try it with a sample video</button>
+    </div>
+    <div class="demo-flag" id="demo-flag">Demo mode: translation is simulated locally (no API key configured). Captioning, timing, and export are fully live.</div>
+
+    <div class="hero-visual" id="hero-visual">
+      <div class="float-card fc1"><span class="ic">⌨️</span> Press <b style="margin:0 2px">S</b> to mark in</div>
+      <div class="float-card fc2"><span class="ic">🌍</span> Translations appear side by side</div>
+      <div class="mock-video">
+        <div class="play"></div>
+        <div class="mock-cap">Type your caption and it appears here</div>
+        <div class="mock-progress"></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="editor">
+    <div id="length-lock" class="lock-banner">⏳ This video is over the 45-minute free limit. <a href="/pricing.html">Upgrade to Pro</a> to caption full-length videos.</div>
+    <div class="editor-grid">
+      <div class="left-col">
+        <div id="player-wrap"><div id="player-host"></div><div id="overlay" class="subtitle-overlay"></div></div>
+        <div class="transport">
+          <button class="btn scrub" onclick="seekRelative(-3)"><span class="arrow">⏪</span><span class="lbl">−3s</span></button>
+          <button class="btn play-big" id="playBtn" onclick="togglePlay()">▶ Play</button>
+          <button class="btn scrub" onclick="seekRelative(3)"><span class="arrow">⏩</span><span class="lbl">+3s</span></button>
+        </div>
+        <div class="panel control-card">
+          <button class="btn auto-btn" id="auto-btn">✨ Auto-generate captions <span class="pro-tag">Pro</span></button>
+          <div class="marks">
+            <div class="mark">
+              <label>In point</label>
+              <div class="time" id="startDisplay">--:--:--</div>
+              <button class="btn" onclick="markStart()">Mark In (S)</button>
+            </div>
+            <div class="mark">
+              <label>Out point</label>
+              <div class="time" id="endDisplay">--:--:--</div>
+              <button class="btn" onclick="markEnd()">Mark Out (E)</button>
+            </div>
+          </div>
+          <div class="lines">
+            <input type="text" id="line1" placeholder="Caption line 1" autocomplete="off" />
+            <input type="text" id="line2" placeholder="Caption line 2 (optional)" autocomplete="off" maxlength="42" />
+          </div>
+          <div class="actions">
+            <button class="btn clear-btn" onclick="clearCurrent()">Clear</button>
+            <button class="btn save-btn" id="saveBtn" onclick="saveCaption()">Save caption</button>
+          </div>
+          <div class="kbd-hint"><kbd>Space</kbd> play · <kbd>S</kbd> in · <kbd>E</kbd> out · <kbd>Enter</kbd> save</div>
+        </div>
+      </div>
+
+      <div class="right-col">
+        <div class="translate-bar">
+          <div class="tb-title">🌍 Add a translation column</div>
+          <div class="tb-row">
+            <select id="tgt-lang"></select>
+            <button class="btn" id="translate-btn">Translate</button>
+          </div>
+        </div>
+        <button class="btn auto-btn" id="burn-btn">🎬 Export burned-in video <span class="pro-tag">Pro</span></button>
+        <div class="columns-head">
+          <h3>Captions <span class="hint" id="col-count">(0)</span></h3>
+          <span class="hint">Each box exports its own .srt / .vtt.</span>
+        </div>
+        <div class="columns" id="columns"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="why">
+    <h2>Made for when auto-captions fall short</h2>
+    <p class="lead">YouTube and Adobe auto-caption common languages well enough. This is for the jobs they can't do.</p>
+    <div class="feature-grid">
+      <div class="feat"><div class="ic">🎛️</div><h3>You want real control</h3><p>Auto-captions guess. They mistime lines, drop names, and mangle technical terms. Here you type exactly what's said and place it exactly where it belongs.</p></div>
+      <div class="feat"><div class="ic">🗣️</div><h3>Your language isn't supported</h3><p>Automatic captions only cover a shortlist of languages. If you work in one YouTube and Adobe don't, automation isn't an option. A person can caption any language here.</p></div>
+      <div class="feat"><div class="ic">🤝</div><h3>Hand it to a translator</h3><p>Send the link to a translator or captioner and they add subtitles in any language just by typing, with no captioning service to hire or software to buy.</p></div>
+    </div>
+  </section>
+
+  <section class="section" id="how">
+    <h2>From any link to subtitles in three steps</h2>
+    <p class="lead">No timeline scrubbing in clunky desktop software. Just play and type.</p>
+    <div class="steps3">
+      <div class="step"><div class="num">1</div><h3>Paste any link</h3><p>YouTube, Vimeo, Rushes, Dropbox, Drive, or a direct video file. It loads right here, ready to play.</p></div>
+      <div class="step"><div class="num">2</div><h3>Caption in time</h3><p>Hit play. Press <b>S</b> and <b>E</b> to mark when each line starts and ends, type it, and it appears on the video instantly.</p></div>
+      <div class="step"><div class="num">3</div><h3>Export &amp; translate</h3><p>Download a clean .srt or .vtt. Translate into another language and it shows up in its own box, side by side.</p></div>
+    </div>
+  </section>
+
+  <section class="section" id="features">
+    <h2>Built for creators, not editors</h2>
+    <p class="lead">The fastest way to caption a video you don't want to load into Premiere.</p>
+    <div class="feature-grid">
+      <div class="feat"><div class="ic">🔗</div><h3>Works with any link</h3><p>YouTube and Vimeo get full playback control. Dropbox, Drive, and direct files play as native video. One editor for every source.</p></div>
+      <div class="feat"><div class="ic">🎯</div><h3>See it as you type</h3><p>Your caption renders on the real video the instant you save it, so timing is never a guess.</p></div>
+      <div class="feat"><div class="ic">🌍</div><h3>Translate side by side</h3><p>Each translation appears in its own box next to the original, with its own download buttons. Translate as many as you need.</p></div>
+      <div class="feat"><div class="ic">⌨️</div><h3>Keyboard-first</h3><p>Space to play, S/E to mark in and out, Enter to save. Caption a short in minutes.</p></div>
+      <div class="feat"><div class="ic">🔒</div><h3>Stays in your browser</h3><p>Your captions are saved locally and never uploaded. Close the tab and pick up where you left off.</p></div>
+      <div class="feat"><div class="ic">📥</div><h3>Clean exports</h3><p>Standard .srt and .vtt that drop straight into YouTube, Premiere, DaVinci, or CapCut.</p></div>
+    </div>
+  </section>
+
+  <div class="cta-band">
+    <h2>Got a video that needs captions?</h2>
+    <p>Paste the link and start in seconds. No signup, no download.</p>
+    <button class="btn" onclick="document.getElementById('yt-url').scrollIntoView({block:'center'});document.getElementById('yt-url').focus();">Start captioning free →</button>
+  </div>
+
+  <footer class="site">
+    <div><a href="/">Captioner</a> · <a href="/translate.html">Translate a file</a> · <a href="/subtitle-specs/">Subtitle specs</a> · <a href="/languages/">Languages</a> · <a href="/pricing.html">Pricing</a></div>
+    <div style="margin-top:10px;">SubCaptions: subtitle any video, without leaving your browser.</div>
+  </footer>
 </div>
 
 <div class="toast" id="toast"></div>
 
+<script type="module" src="/lib/auth.js"></script>
 <script>
-let player = null;
-let playerReady = false;
-let captions = [];
-let currentStart = null;
-let currentEnd = null;
-let currentVideoId = 'oNhE89V2S6o';
-let editingIdx = null;
+/* =================== CONFIG =================== */
+const API_BASE = "";                 // translation Worker URL; empty = demo mode
+const DEMO = !API_BASE;
+const TRANSCRIBE_BASE = "";          // Whisper transcription service URL; empty = demo
+const DEMO_TRANSCRIBE = !TRANSCRIBE_BASE;
 const MAX_LINE = 42;
+const SAMPLE_VIDEO = "oNhE89V2S6o";
+const FREE_MAX_MINUTES = 45;         // free plan video-length cap
+let IS_PRO = false;                  // entitlement; real check comes from auth later. ?pro=1 forces on for testing.
+const LANGUAGES = [
+  ["Spanish","es","🇪🇸"],["Portuguese (Brazil)","pt-BR","🇧🇷"],["French","fr","🇫🇷"],["German","de","🇩🇪"],["Italian","it","🇮🇹"],
+  ["Japanese","ja","🇯🇵"],["Korean","ko","🇰🇷"],["Chinese (Simplified)","zh-CN","🇨🇳"],["Hindi","hi","🇮🇳"],["Arabic","ar","🇸🇦"],
+  ["Russian","ru","🇷🇺"],["Turkish","tr","🇹🇷"],["Indonesian","id","🇮🇩"],["Vietnamese","vi","🇻🇳"],["Polish","pl","🇵🇱"],
+  ["Dutch","nl","🇳🇱"],["Thai","th","🇹🇭"],["Ukrainian","uk","🇺🇦"],["Filipino","tl","🇵🇭"],["Swedish","sv","🇸🇪"]
+];
+const LANG_BY_CODE = Object.fromEntries(LANGUAGES.map(l => [l[1], { name: l[0], flag: l[2] }]));
 
-// Persistence
-function storageKey(id) { return 'srt-captions-' + id; }
-function loadCaptionsForVideo(id) {
-  try { captions = JSON.parse(localStorage.getItem(storageKey(id))) || []; }
-  catch (e) { captions = []; }
-}
-function persist() {
-  try { localStorage.setItem(storageKey(currentVideoId), JSON.stringify(captions)); } catch (e) {}
-}
+/* =================== STATE =================== */
+let captions = [];                   // [{start,end,line1,line2}]
+let translations = {};               // { code: { name, flag, lines:[text per caption index] } }
+let currentStart = null, currentEnd = null, editingIdx = null;
+let currentKey = null;               // storage + filename key for the loaded source
+let currentSourceUrl = "";           // raw pasted URL (sent to the transcription service)
+let videoDuration = 0, lengthLocked = false;
 
-const lastVideoId = localStorage.getItem('srt-last-video');
-if (lastVideoId) currentVideoId = lastVideoId;
-loadCaptionsForVideo(currentVideoId);
+/* =================== PLAYER ABSTRACTION =================== */
+let kind = null;                     // 'yt' | 'vimeo' | 'html5'
+let ytP = null, vmP = null, vidEl = null;
+let ready = false, cachedTime = 0, isPlaying = false, loopStarted = false;
 
-// YouTube API
-const tag = document.createElement('script');
-tag.src = 'https://www.youtube.com/iframe_api';
-document.body.appendChild(tag);
+function hashStr(s){ let h=0; for(let i=0;i<s.length;i++){ h=(h*31 + s.charCodeAt(i))|0; } return Math.abs(h).toString(36); }
 
-function onYouTubeIframeAPIReady() {
-  player = new YT.Player('player', {
-    videoId: currentVideoId,
-    width: '100%', height: '100%',
-    playerVars: { rel: 0, modestbranding: 1, playsinline: 1 },
-    events: {
-      onReady: () => { playerReady = true; startTimeLoop(); },
-      onStateChange: (e) => {
-        const btn = document.getElementById('playBtn');
-        btn.textContent = (e.data === YT.PlayerState.PLAYING) ? '⏸ Pause' : '▶ Play';
-      }
-    }
-  });
-}
-
-function changeVideo() {
-  const current = 'https://youtu.be/' + currentVideoId;
-  const url = prompt('Paste YouTube URL:', current);
-  if (!url) return;
-  const id = extractVideoId(url);
-  if (!id) { toast('Invalid YouTube URL', 'error'); return; }
-  if (id === currentVideoId) return;
-  persist();
-  currentVideoId = id;
-  localStorage.setItem('srt-last-video', id);
-  loadCaptionsForVideo(id);
-  if (playerReady) player.loadVideoById({ videoId: id });
-  renderCaptions();
-  clearCurrent();
-}
-
-function extractVideoId(url) {
-  if (!url) return null;
-  url = url.trim();
+function extractYouTubeId(url){
   if (/^[a-zA-Z0-9_-]{11}$/.test(url)) return url;
   let m = url.match(/youtu\.be\/([a-zA-Z0-9_-]{11})/); if (m) return m[1];
   m = url.match(/[?&]v=([a-zA-Z0-9_-]{11})/); if (m) return m[1];
-  m = url.match(/youtube\.com\/embed\/([a-zA-Z0-9_-]{11})/); if (m) return m[1];
-  m = url.match(/youtube\.com\/shorts\/([a-zA-Z0-9_-]{11})/); if (m) return m[1];
+  m = url.match(/youtube\.com\/(?:embed|shorts|live)\/([a-zA-Z0-9_-]{11})/); if (m) return m[1];
   return null;
 }
 
-function formatTime(seconds, srt = false) {
-  if (seconds == null || isNaN(seconds)) return '— — : — — : — —';
-  if (seconds < 0) seconds = 0;
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  const s = Math.floor(seconds % 60);
-  const ms = Math.floor((seconds - Math.floor(seconds)) * 1000);
-  const sep = srt ? ',' : '.';
+// Resolve any pasted link into a playable source. Leads with YouTube/Vimeo,
+// rewrites Dropbox/Drive share links to direct streams, and falls back to a
+// native HTML5 <video> for direct files and anything else http(s).
+function resolveSource(raw){
+  const url = (raw || "").trim();
+  if (!url) return null;
+
+  const yt = extractYouTubeId(url);
+  if (yt) return { kind:"yt", id: yt, key: "yt_" + yt };
+
+  let m = url.match(/vimeo\.com\/(?:video\/|channels\/[^/]+\/|groups\/[^/]+\/videos\/)?(\d+)/);
+  if (m) return { kind:"vimeo", id: m[1], key: "vm_" + m[1] };
+
+  if (/dropbox\.com/.test(url)) {
+    const direct = url
+      .replace("www.dropbox.com", "dl.dropboxusercontent.com")
+      .replace("//dropbox.com", "//dl.dropboxusercontent.com")
+      .replace(/[?&]dl=\d/, "").replace(/[?&]raw=\d/, "");
+    return { kind:"html5", src: direct, key: "h5_" + hashStr(url) };
+  }
+
+  m = url.match(/drive\.google\.com\/file\/d\/([^/]+)/) || (/drive\.google\.com/.test(url) && url.match(/[?&]id=([^&]+)/));
+  if (m) return { kind:"html5", src: `https://drive.google.com/uc?export=download&id=${m[1]}`, key: "gd_" + m[1] };
+
+  // Rushes.cc: the page/embed URL carries the video id; their download endpoint
+  // serves the file with wildcard CORS. (No byte-range support, so seeking in
+  // very large files waits on buffering; short review clips seek fine.)
+  m = url.match(/rushes\.cc\/(?:video|embed)\/([0-9a-fA-F-]{36})/);
+  if (m) return { kind:"html5", src: `https://api.rushes.cc/video/${m[1]}/download`, key: "rushes_" + m[1] };
+
+  if (/\.(mp4|webm|ogg|ogv|mov|m4v)(\?|#|$)/i.test(url)) return { kind:"html5", src: url, key: "h5_" + hashStr(url) };
+
+  if (/^https?:\/\//.test(url)) return { kind:"html5", src: url, key: "h5_" + hashStr(url) }; // other CDNs / direct links
+
+  return null;
+}
+
+function loadScriptOnce(id, src, cb){
+  if (document.getElementById(id)) { document.getElementById(id).addEventListener("load", cb); return; }
+  const s = document.createElement("script"); s.id = id; s.src = src; s.onload = cb; document.body.appendChild(s);
+}
+function loadYouTubeAPI(cb){ if (window.YT && window.YT.Player) { cb(); return; } window.onYouTubeIframeAPIReady = cb; loadScriptOnce("yt-api", "https://www.youtube.com/iframe_api", () => {}); }
+function loadVimeoAPI(cb){ if (window.Vimeo && window.Vimeo.Player) { cb(); return; } loadScriptOnce("vimeo-api", "https://player.vimeo.com/api/player.js", cb); }
+
+function resetPlayer(){
+  ready = false; cachedTime = 0; isPlaying = false;
+  try { if (vidEl) vidEl.pause(); } catch(e){}
+  ytP = null; vmP = null; vidEl = null; kind = null;
+  document.getElementById("player-host").innerHTML = "";
+}
+function updatePlayBtn(p){ isPlaying = p; document.getElementById("playBtn").textContent = p ? "⏸ Pause" : "▶ Play"; }
+function afterReady(){ ready = true; startTimeLoop(); checkDuration(); }
+function checkDuration(){
+  const apply = d => {
+    if (!d || isNaN(d)) return;
+    videoDuration = d;
+    if (!IS_PRO && d > FREE_MAX_MINUTES * 60) lockLength();
+  };
+  try {
+    if (kind === "yt" && ytP && ytP.getDuration) apply(ytP.getDuration());
+    else if (kind === "html5" && vidEl) apply(vidEl.duration);
+    else if (kind === "vimeo" && vmP) vmP.getDuration().then(apply).catch(() => {});
+  } catch (e) {}
+}
+function lockLength(){
+  lengthLocked = true;
+  document.getElementById("length-lock").classList.add("show");
+}
+
+function mount(source){
+  resetPlayer();
+  kind = source.kind;
+  const host = document.getElementById("player-host");
+  if (kind === "yt") {
+    host.innerHTML = '<div id="ytplayer"></div>';
+    loadYouTubeAPI(() => {
+      ytP = new YT.Player("ytplayer", {
+        videoId: source.id, width: "100%", height: "100%",
+        playerVars: { rel:0, modestbranding:1, playsinline:1 },
+        events: {
+          onReady: afterReady,
+          onStateChange: e => updatePlayBtn(e.data === YT.PlayerState.PLAYING)
+        }
+      });
+    });
+  } else if (kind === "vimeo") {
+    loadVimeoAPI(() => {
+      vmP = new Vimeo.Player(host, { id: Number(source.id), responsive: false, width: 640 });
+      vmP.on("timeupdate", d => { cachedTime = d.seconds; });
+      vmP.on("seeked", d => { cachedTime = d.seconds; });
+      vmP.on("play", () => updatePlayBtn(true));
+      vmP.on("pause", () => updatePlayBtn(false));
+      vmP.ready().then(afterReady).catch(() => toast("Couldn't load that Vimeo video", "error"));
+    });
+  } else { // html5
+    const v = document.createElement("video");
+    v.src = source.src; v.controls = true; v.playsInline = true; v.preload = "metadata";
+    v.addEventListener("loadedmetadata", afterReady);
+    v.addEventListener("timeupdate", () => { cachedTime = v.currentTime; });
+    v.addEventListener("play", () => updatePlayBtn(true));
+    v.addEventListener("pause", () => updatePlayBtn(false));
+    v.addEventListener("error", () => toast("Couldn't play that link. Try a direct video file URL.", "error"));
+    host.appendChild(v); vidEl = v;
+  }
+}
+
+function getCurrentTime(){
+  if (kind === "yt" && ytP && ready) { try { return ytP.getCurrentTime() || 0; } catch(e){ return 0; } }
+  if (kind === "html5" && vidEl) return vidEl.currentTime || 0;
+  if (kind === "vimeo") return cachedTime || 0;
+  return 0;
+}
+function togglePlay(){
+  if (!ready) return;
+  if (kind === "yt") { ytP.getPlayerState() === YT.PlayerState.PLAYING ? ytP.pauseVideo() : ytP.playVideo(); }
+  else if (kind === "html5") { vidEl.paused ? vidEl.play() : vidEl.pause(); }
+  else if (kind === "vimeo") { isPlaying ? vmP.pause() : vmP.play(); }
+}
+function seekRelative(d){
+  if (!ready) return;
+  const t = Math.max(0, getCurrentTime() + d);
+  if (kind === "yt") ytP.seekTo(t, true);
+  else if (kind === "html5") vidEl.currentTime = t;
+  else if (kind === "vimeo") { vmP.setCurrentTime(t); cachedTime = t; }
+}
+function seekTo(i){
+  const c = captions[i]; if (!c || !ready) return;
+  if (kind === "yt") ytP.seekTo(c.start, true);
+  else if (kind === "html5") vidEl.currentTime = c.start;
+  else if (kind === "vimeo") { vmP.setCurrentTime(c.start); cachedTime = c.start; }
+}
+
+/* =================== PERSISTENCE =================== */
+function persist(){ try { localStorage.setItem("subcap-" + currentKey, JSON.stringify({ c: captions, t: translations })); } catch(e){} }
+function loadState(key){
+  try { const o = JSON.parse(localStorage.getItem("subcap-" + key)) || {}; captions = o.c || []; translations = o.t || {}; }
+  catch(e){ captions = []; translations = {}; }
+}
+
+/* =================== EDITOR FLOW =================== */
+function startEditor(url){
+  const s = resolveSource(url);
+  if (!s) { toast("That doesn't look like a video link", "error"); return; }
+  if (currentKey) persist();
+  currentSourceUrl = (url || "").trim();
+  currentKey = s.key;
+  loadState(s.key);
+  lengthLocked = false; videoDuration = 0;
+  document.getElementById("length-lock").classList.remove("show");
+  document.getElementById("hero-visual").style.display = "none";
+  document.getElementById("editor").classList.add("show");
+  document.getElementById("editor").scrollIntoView({ behavior:"smooth", block:"start" });
+  mount(s);
+  renderColumns();
+}
+
+// Each video opens its own browser tab, so starting a new one never disturbs
+// the session you're already working on.
+function openInNewTab(url){
+  const v = (url || "").trim();
+  if (!resolveSource(v)) { toast("That doesn't look like a video link", "error"); return; }
+  window.open("/?v=" + encodeURIComponent(v), "_blank");
+}
+
+function pad(n,l){ return String(n).padStart(l,"0"); }
+function formatTime(sec, srt){
+  if (sec == null || isNaN(sec)) return "--:--:--";
+  if (sec < 0) sec = 0;
+  const h=Math.floor(sec/3600), m=Math.floor((sec%3600)/60), s=Math.floor(sec%60), ms=Math.floor((sec-Math.floor(sec))*1000);
+  const sep = srt ? "," : ".";
   return `${pad(h,2)}:${pad(m,2)}:${pad(s,2)}${sep}${pad(ms,3)}`;
 }
-function pad(n, len) { return String(n).padStart(len, '0'); }
-
-function getCurrentTime() {
-  if (!playerReady) return 0;
-  try { return player.getCurrentTime() || 0; } catch (e) { return 0; }
-}
-
-function startTimeLoop() {
+function startTimeLoop(){
+  if (loopStarted) return; loopStarted = true;
   setInterval(() => {
-    if (!playerReady) return;
+    if (!ready) return;
+    if (!videoDuration) checkDuration(); // YouTube duration is sometimes 0 until playback starts
     const t = getCurrentTime();
-    updateOverlay(t);
-    updateActiveCaption(t);
-  }, 80);
+    const a = captions.find(c => t >= c.start && t <= c.end);
+    document.getElementById("overlay").textContent = a ? [a.line1,a.line2].filter(Boolean).join("\n") : "";
+    const activeIdx = a ? captions.indexOf(a) : -1;
+    document.querySelectorAll(".cue-cell").forEach(el => el.classList.toggle("active", +el.dataset.i === activeIdx));
+  }, 90);
 }
 
-function updateOverlay(t) {
-  const active = captions.find(c => t >= c.start && t <= c.end);
-  document.getElementById('overlay').textContent =
-    active ? [active.line1, active.line2].filter(Boolean).join('\n') : '';
-}
-
-function updateActiveCaption(t) {
-  document.querySelectorAll('.caption-row').forEach(row => {
-    const idx = parseInt(row.dataset.idx);
-    const c = captions[idx];
-    if (c && t >= c.start && t <= c.end) row.classList.add('active');
-    else row.classList.remove('active');
-  });
-}
-
-function togglePlay() {
-  if (!playerReady) return;
-  const state = player.getPlayerState();
-  if (state === YT.PlayerState.PLAYING) player.pauseVideo();
-  else player.playVideo();
-}
-
-function seekRelative(delta) {
-  if (!playerReady) return;
-  player.seekTo(Math.max(0, getCurrentTime() + delta), true);
-}
-
-function markStart() {
-  currentStart = getCurrentTime();
-  document.getElementById('startDisplay').textContent = formatTime(currentStart);
-}
-function markEnd() {
-  currentEnd = getCurrentTime();
-  document.getElementById('endDisplay').textContent = formatTime(currentEnd);
-}
-
-function clearCurrent() {
+function markStart(){ currentStart = getCurrentTime(); document.getElementById("startDisplay").textContent = formatTime(currentStart); }
+function markEnd(){ currentEnd = getCurrentTime(); document.getElementById("endDisplay").textContent = formatTime(currentEnd); }
+function clearCurrent(){
   currentStart = null; currentEnd = null; editingIdx = null;
-  document.getElementById('startDisplay').textContent = '— — : — — : — —';
-  document.getElementById('endDisplay').textContent = '— — : — — : — —';
-  document.getElementById('line1').value = '';
-  document.getElementById('line2').value = '';
-  document.querySelector('.save-btn').textContent = 'Save Caption';
-  renderCaptions();
+  document.getElementById("startDisplay").textContent = "--:--:--";
+  document.getElementById("endDisplay").textContent = "--:--:--";
+  document.getElementById("line1").value = ""; document.getElementById("line2").value = "";
+  document.getElementById("saveBtn").textContent = "Save caption";
 }
-
-function saveCaption() {
-  if (currentStart == null || currentEnd == null) { toast('Mark both Start and End first', 'error'); return; }
-  if (currentEnd <= currentStart) { toast('End must be after Start', 'error'); return; }
-  const line1 = document.getElementById('line1').value.trim();
-  const line2 = document.getElementById('line2').value.trim();
-  if (!line1 && !line2) { toast('Type at least one line', 'error'); return; }
-
+function saveCaption(){
+  if (lengthLocked) { toast("This video is over the 45-min free limit. Upgrade to Pro.", "error"); return; }
+  if (currentStart == null || currentEnd == null) { toast("Mark both In and Out first", "error"); return; }
+  if (currentEnd <= currentStart) { toast("Out must come after In", "error"); return; }
+  const line1 = document.getElementById("line1").value.trim();
+  const line2 = document.getElementById("line2").value.trim();
+  if (!line1 && !line2) { toast("Type at least one line", "error"); return; }
   const wasEditing = editingIdx !== null;
   const cap = { start: currentStart, end: currentEnd, line1, line2 };
-  if (wasEditing) captions[editingIdx] = cap;
-  else captions.push(cap);
-  captions.sort((a, b) => a.start - b.start);
+  if (wasEditing) {
+    captions[editingIdx] = cap;
+    captions.sort((a,b) => a.start - b.start);
+  } else {
+    captions.push(cap);
+    captions.sort((a,b) => a.start - b.start);
+    const pos = captions.indexOf(cap);
+    Object.values(translations).forEach(tr => tr.lines.splice(pos, 0, "")); // keep columns aligned
+  }
   persist();
   clearCurrent();
-
-  // Auto-continue: pre-fill next caption's start with the just-saved end time
-  if (!wasEditing) {
-    currentStart = cap.end;
-    document.getElementById('startDisplay').textContent = formatTime(cap.end);
-  }
-
-  renderCaptions();
-  document.getElementById('line1').focus();
-  toast('Saved', 'success');
+  if (!wasEditing) { currentStart = cap.end; document.getElementById("startDisplay").textContent = formatTime(cap.end); }
+  renderColumns();
+  document.getElementById("line1").focus();
+  // Readability check (Netflix/festival spec): ~20 characters/second is the comfortable max.
+  const chars = line1.length + line2.length;
+  const dur = cap.end - cap.start;
+  const cps = dur > 0 ? chars / dur : 0;
+  if (cps > 20) toast(`Saved. Heads up: ~${Math.round(cps)} cps may be too fast to read (aim for 20).`);
+  else toast("Saved", "success");
+}
+function editCap(i){
+  const c = captions[i]; if (!c) return;
+  currentStart = c.start; currentEnd = c.end; editingIdx = i;
+  document.getElementById("startDisplay").textContent = formatTime(c.start);
+  document.getElementById("endDisplay").textContent = formatTime(c.end);
+  document.getElementById("line1").value = c.line1 || ""; document.getElementById("line2").value = c.line2 || "";
+  document.getElementById("saveBtn").textContent = "Update";
+  document.getElementById("line1").focus();
+}
+function delCap(i){
+  if (!confirm("Delete this caption?")) return;
+  captions.splice(i,1);
+  Object.values(translations).forEach(tr => tr.lines.splice(i,1)); // keep columns aligned
+  if (editingIdx === i) clearCurrent(); else if (editingIdx !== null && editingIdx > i) editingIdx--;
+  persist(); renderColumns();
 }
 
-function renderCaptions() {
-  const list = document.getElementById('captionsList');
-  document.getElementById('count').textContent = '(' + captions.length + ')';
-  if (captions.length === 0) {
-    list.innerHTML = '<div class="empty-state">No captions yet.</div>';
-    return;
-  }
-  list.innerHTML = captions.map((c, i) => {
-    const editingCls = (i === editingIdx) ? ' editing' : '';
-    return `
-    <div class="caption-row${editingCls}" data-idx="${i}" onclick="seekToCaption(${i})">
-      <div class="caption-times">
-        <span>${formatTime(c.start)} → ${formatTime(c.end)}</span>
-        <span>#${i+1}</span>
-      </div>
-      <div class="caption-text">${escapeHtml([c.line1, c.line2].filter(Boolean).join('\n'))}</div>
-      <div class="caption-actions" onclick="event.stopPropagation()">
-        <button onclick="editCaption(${i})">Edit</button>
-        <button onclick="deleteCaption(${i})" class="del">Delete</button>
-      </div>
+/* =================== COLUMNS (source + translations) =================== */
+function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function colHtml(key, title, flag, isSource, rows, loading){
+  const head = `<div class="col-head">
+      <div class="col-title">${flag ? `<span class="flag">${flag}</span>` : ""}${escapeHtml(title)}${isSource ? "" : `<button class="col-x" data-rm="${key}" title="Remove">✕</button>`}</div>
+      <div class="col-dl"><button data-dl="${key}" data-fmt="srt">.srt</button><button data-dl="${key}" data-fmt="vtt">.vtt</button></div>
     </div>`;
-  }).join('');
+  let body;
+  if (loading) body = `<div class="col-loading">Translating…</div>`;
+  else if (!captions.length) body = `<div class="col-empty"><div class="big">🎬</div>${isSource ? "No captions yet. Play the video, mark in/out, and type." : ""}</div>`;
+  else body = `<div class="col-body">${rows.map((r,i) => `
+      <div class="cue-cell" data-i="${i}">
+        <div class="cue-time" data-seek="${i}"><span>${formatTime(captions[i].start, true).slice(0,8)}</span><span>#${i+1}</span></div>
+        <textarea class="cue-tx" data-col="${key}" data-i="${i}" rows="1" placeholder="${isSource ? "caption" : "(translation)"}">${escapeHtml(r)}</textarea>
+        ${isSource ? `<div class="cue-time" style="margin-top:4px;margin-bottom:0"><span data-edit="${i}" style="cursor:pointer">edit timing</span><span data-del="${i}" style="cursor:pointer">delete</span></div>` : ""}
+      </div>`).join("")}</div>`;
+  return `<div class="lang-col${isSource ? " source" : ""}">${head}${body}</div>`;
 }
-
-function escapeHtml(s) {
-  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-}
-
-function seekToCaption(idx) {
-  const c = captions[idx]; if (!c || !playerReady) return;
-  player.seekTo(c.start, true);
-}
-
-function editCaption(idx) {
-  const c = captions[idx]; if (!c) return;
-  currentStart = c.start; currentEnd = c.end; editingIdx = idx;
-  document.getElementById('startDisplay').textContent = formatTime(c.start);
-  document.getElementById('endDisplay').textContent = formatTime(c.end);
-  document.getElementById('line1').value = c.line1 || '';
-  document.getElementById('line2').value = c.line2 || '';
-  document.querySelector('.save-btn').textContent = 'Update';
-  renderCaptions();
-  document.getElementById('line1').focus();
-}
-
-function deleteCaption(idx) {
-  if (!confirm('Delete this caption?')) return;
-  captions.splice(idx, 1);
-  if (editingIdx === idx) clearCurrent();
-  else if (editingIdx !== null && editingIdx > idx) editingIdx--;
-  persist();
-  renderCaptions();
-}
-
-function exportSRT() {
-  if (captions.length === 0) { toast('Nothing to export', 'error'); return; }
-  const sorted = [...captions].sort((a, b) => a.start - b.start);
-  const srt = sorted.map((c, i) => {
-    const lines = [c.line1, c.line2].filter(Boolean).join('\n');
-    return `${i+1}\n${formatTime(c.start, true)} --> ${formatTime(c.end, true)}\n${lines}\n`;
-  }).join('\n');
-  const blob = new Blob([srt], { type: 'text/plain;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url; a.download = `subtitles-${currentVideoId}.srt`;
-  document.body.appendChild(a); a.click(); document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-}
-
-// Line 1 overflow → line 2 (word-aware, cursor follows when typing at end)
-function handleLine1Input() {
-  const line1 = document.getElementById('line1');
-  const line2 = document.getElementById('line2');
-  if (line1.value.length <= MAX_LINE) return;
-
-  const cursorPos = line1.selectionStart;
-  let breakAt = -1;
-  const scanEnd = Math.min(MAX_LINE, line1.value.length - 1);
-  for (let i = scanEnd; i >= 0; i--) {
-    if (line1.value[i] === ' ') { breakAt = i; break; }
+function renderColumns(loadingCode){
+  document.getElementById("col-count").textContent = "(" + captions.length + ")";
+  const sourceRows = captions.map(c => [c.line1, c.line2].filter(Boolean).join("\n"));
+  let html = colHtml("source", "Original", "📝", true, sourceRows, false);
+  for (const code of Object.keys(translations)) {
+    const tr = translations[code];
+    html += colHtml(code, tr.name, tr.flag, false, captions.map((c,i) => tr.lines[i] || ""), false);
   }
-  if (breakAt <= 0) breakAt = MAX_LINE;
-
-  const keep = line1.value.substring(0, breakAt).replace(/\s+$/, '');
-  const overflow = line1.value.substring(breakAt).replace(/^\s+/, '');
-  line1.value = keep;
-  const merged = overflow + (line2.value ? ' ' + line2.value : '');
-  line2.value = merged.substring(0, MAX_LINE);
-
-  if (cursorPos > breakAt) {
-    line2.focus();
-    const newPos = Math.min(overflow.length, line2.value.length);
-    try { line2.setSelectionRange(newPos, newPos); } catch (e) {}
-  } else {
-    const newPos = Math.min(cursorPos, line1.value.length);
-    try { line1.setSelectionRange(newPos, newPos); } catch (e) {}
+  if (loadingCode && !translations[loadingCode]) {
+    const meta = LANG_BY_CODE[loadingCode] || { name: loadingCode, flag: "🌍" };
+    html += colHtml(loadingCode, meta.name, meta.flag, false, [], true);
   }
+  document.getElementById("columns").innerHTML = html;
 }
-document.getElementById('line1').addEventListener('input', handleLine1Input);
 
-// Keyboard shortcuts (kept invisible — Space play/pause, S/E mark, Enter save)
-document.addEventListener('keydown', (e) => {
-  const isTyping = ['INPUT','TEXTAREA'].includes(document.activeElement.tagName);
-  const mod = e.metaKey || e.ctrlKey;
-
-  if (mod) {
-    if (e.key === 's' || e.key === 'S') { e.preventDefault(); markStart(); return; }
-    if (e.key === 'e' || e.key === 'E') { e.preventDefault(); markEnd(); return; }
-    if (e.key === ' ' || e.code === 'Space') { e.preventDefault(); togglePlay(); return; }
-    if (e.key === 'Enter') { e.preventDefault(); saveCaption(); return; }
-  }
-
-  if (isTyping) {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      if (document.activeElement.id === 'line1') document.getElementById('line2').focus();
-      else if (document.activeElement.id === 'line2') saveCaption();
-    }
+/* =================== TRANSLATE =================== */
+async function translateBatch(texts, target){
+  if (DEMO) { await new Promise(r => setTimeout(r, 450)); return texts.map(t => `[${target}] ` + t); }
+  const res = await fetch(API_BASE.replace(/\/$/,"") + "/translate", {
+    method:"POST", headers:{ "Content-Type":"application/json" },
+    body: JSON.stringify({ source:"auto", target, cues: texts })
+  });
+  if (!res.ok) throw new Error("Translation failed (" + res.status + ")");
+  const data = await res.json();
+  if (!data.translations || data.translations.length !== texts.length) throw new Error("Unexpected response");
+  return data.translations;
+}
+async function translateCaptions(){
+  if (!captions.length) { toast("Make some captions first", "error"); return; }
+  const code = document.getElementById("tgt-lang").value;
+  // Free plan: one translation. Re-translating an existing language is fine; a new one needs Pro.
+  if (!IS_PRO && !translations[code] && Object.keys(translations).length >= 1) {
+    toast("Free includes one translation. Pro unlocks unlimited languages.", "error");
     return;
   }
-
-  if (e.key === ' ' || e.code === 'Space') { e.preventDefault(); togglePlay(); }
-  else if (e.key === 's' || e.key === 'S') { e.preventDefault(); markStart(); }
-  else if (e.key === 'e' || e.key === 'E') { e.preventDefault(); markEnd(); }
-  else if (e.key === 'ArrowLeft') { e.preventDefault(); seekRelative(-3); }
-  else if (e.key === 'ArrowRight') { e.preventDefault(); seekRelative(3); }
-});
-
-// Toast
-let toastTimer = null;
-function toast(msg, type) {
-  const el = document.getElementById('toast');
-  el.textContent = msg;
-  el.className = 'toast show' + (type ? ' ' + type : '');
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => el.classList.remove('show'), 1500);
+  const meta = LANG_BY_CODE[code];
+  const btn = document.getElementById("translate-btn");
+  btn.disabled = true; btn.textContent = "…";
+  renderColumns(code);
+  const colsEl = document.getElementById("columns");
+  colsEl.scrollLeft = colsEl.scrollWidth;
+  try {
+    const texts = captions.map(c => [c.line1,c.line2].filter(Boolean).join("\n"));
+    const out = [];
+    for (let i=0;i<texts.length;i+=40){ const t = await translateBatch(texts.slice(i,i+40), code); out.push(...t); }
+    translations[code] = { name: meta.name, flag: meta.flag, lines: out };
+    persist();
+    renderColumns();
+    colsEl.scrollLeft = colsEl.scrollWidth;
+    toast(`Added ${meta.name} column`, "success");
+  } catch(e) {
+    renderColumns();
+    toast(e.message || "Translation failed", "error");
+  } finally { btn.disabled = false; btn.textContent = "Translate"; }
 }
 
-renderCaptions();
+/* =================== AUTO-CAPTION (Whisper, Pro) =================== */
+// Transcription needs the audio. The browser can't reach the audio inside a
+// YouTube/Vimeo iframe, so this calls a backend (see transcribe-server/) that
+// pulls the audio for ANY source and runs Whisper, returning timed cues.
+async function autoTranscribe(){
+  if (!IS_PRO) { toast("Auto-captions are a Pro feature. See Pricing.", "error"); return; }
+  if (!currentSourceUrl) { toast("Load a video first", "error"); return; }
+  if (captions.length && !confirm("Replace the current captions with auto-generated ones?")) return;
+  const btn = document.getElementById("auto-btn");
+  const label = btn.innerHTML;
+  btn.disabled = true; btn.textContent = "Transcribing…";
+  try {
+    let cues;
+    if (DEMO_TRANSCRIBE) {
+      await new Promise(r => setTimeout(r, 900));
+      cues = [
+        { start: 0.5, end: 3.5, text: "[auto] First transcribed line" },
+        { start: 3.8, end: 6.6, text: "[auto] Second transcribed line from Whisper" },
+        { start: 6.9, end: 9.8, text: "[auto] Third line, ready for you to edit" },
+        { start: 10.1, end: 13.0, text: "[auto] Fourth line" }
+      ];
+    } else {
+      const res = await fetch(TRANSCRIBE_BASE.replace(/\/$/, "") + "/transcribe", {
+        method: "POST", headers: authHeaders({ "Content-Type": "application/json" }),
+        body: JSON.stringify({ url: currentSourceUrl })
+      });
+      if (res.status === 402) throw new Error("Auto-captions are a Pro feature.");
+      if (!res.ok) throw new Error("Transcription failed (" + res.status + ")");
+      cues = (await res.json()).cues || [];
+    }
+    if (!cues.length) throw new Error("No speech found in this video");
+    captions = cues.map(c => ({ start: c.start, end: c.end, line1: c.text || "", line2: "" }));
+    captions.sort((a, b) => a.start - b.start);
+    translations = {}; // a fresh transcript invalidates old translation columns
+    persist();
+    renderColumns();
+    toast(DEMO_TRANSCRIBE ? "Demo: auto-captions simulated" : "Auto-captions generated, review and edit", "success");
+  } catch (e) {
+    toast(e.message || "Transcription failed", "error");
+  } finally {
+    btn.disabled = false; btn.innerHTML = label;
+  }
+}
+
+/* =================== BURN-IN (Pro, server-side render) =================== */
+// Burning subtitles into the picture needs the source file and a full re-encode,
+// so it runs on the transcribe-server (which can fetch any source via yt-dlp and
+// downscale to cap cost). Pro-only.
+async function burnVideo(){
+  if (!IS_PRO) { toast("Burned-in video is a Pro feature. See Pricing.", "error"); return; }
+  if (!captions.length) { toast("Make some captions first", "error"); return; }
+  const srt = buildSubs(false, captions.map(c => [c.line1, c.line2].filter(Boolean).join("\n")));
+  const btn = document.getElementById("burn-btn");
+  const label = btn.innerHTML;
+  btn.disabled = true; btn.textContent = "Rendering… (this can take a while)";
+  try {
+    if (DEMO_TRANSCRIBE) {
+      await new Promise(r => setTimeout(r, 900));
+      toast("Burn-in renders on the server for Pro (demo: server not connected).");
+      return;
+    }
+    const res = await fetch(TRANSCRIBE_BASE.replace(/\/$/, "") + "/burn", {
+      method: "POST", headers: authHeaders({ "Content-Type": "application/json" }),
+      body: JSON.stringify({ url: currentSourceUrl, srt })
+    });
+    if (res.status === 402) throw new Error("Burned-in video is a Pro feature.");
+    if (!res.ok) throw new Error("Render failed (" + res.status + ")");
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a"); a.href = url; a.download = `subcaptions-${currentKey}.mp4`;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+    toast("Burned-in video downloaded", "success");
+  } catch (e) {
+    toast(e.message || "Render failed", "error");
+  } finally {
+    btn.disabled = false; btn.innerHTML = label;
+  }
+}
+
+/* =================== EXPORT =================== */
+function buildSubs(vtt, texts){
+  const body = captions.map((c,i) => `${i+1}\n${formatTime(c.start,!vtt)} --> ${formatTime(c.end,!vtt)}\n${texts[i] || ""}\n`).join("\n");
+  return vtt ? "WEBVTT\n\n" + body : body;
+}
+function downloadFile(content, name){
+  const blob = new Blob([content], { type:"text/plain;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a"); a.href = url; a.download = name;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+}
+function exportCol(col, vtt){
+  if (!captions.length) { toast("Nothing to export yet", "error"); return; }
+  const texts = (col === "source")
+    ? captions.map(c => [c.line1,c.line2].filter(Boolean).join("\n"))
+    : captions.map((c,i) => (translations[col] && translations[col].lines[i]) || "");
+  downloadFile(buildSubs(vtt, texts), `captions-${currentKey}-${col}.${vtt ? "vtt" : "srt"}`);
+}
+
+/* =================== LINE-1 OVERFLOW -> LINE 2 =================== */
+function handleLine1Input(){
+  const l1 = document.getElementById("line1"), l2 = document.getElementById("line2");
+  if (l1.value.length <= MAX_LINE) return;
+  const cursor = l1.selectionStart;
+  let brk = -1; const scanEnd = Math.min(MAX_LINE, l1.value.length-1);
+  for (let i=scanEnd;i>=0;i--){ if (l1.value[i] === " ") { brk = i; break; } }
+  if (brk <= 0) brk = MAX_LINE;
+  const keep = l1.value.substring(0,brk).replace(/\s+$/,"");
+  const overflow = l1.value.substring(brk).replace(/^\s+/,"");
+  l1.value = keep;
+  l2.value = (overflow + (l2.value ? " " + l2.value : "")).substring(0,MAX_LINE);
+  if (cursor > brk) { l2.focus(); const p = Math.min(overflow.length, l2.value.length); try { l2.setSelectionRange(p,p); } catch(e){} }
+}
+
+/* =================== UI HELPERS =================== */
+// Attach the signed-in user's Supabase token so the server can verify their tier.
+function authHeaders(base) {
+  const t = window.SubAuth && window.SubAuth.token;
+  return t ? { ...base, Authorization: "Bearer " + t } : base;
+}
+let toastTimer = null;
+function toast(msg, type){
+  const el = document.getElementById("toast");
+  el.textContent = msg; el.className = "toast show" + (type ? " " + type : "");
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove("show"), 1900);
+}
+
+/* =================== INIT =================== */
+(function init(){
+  const tgt = document.getElementById("tgt-lang");
+  tgt.innerHTML = LANGUAGES.map(([n,c,f]) => `<option value="${c}">${f} ${n}</option>`).join("");
+  if (DEMO) document.getElementById("demo-flag").classList.add("show");
+
+  document.getElementById("start-btn").addEventListener("click", () => openInNewTab(document.getElementById("yt-url").value));
+  document.getElementById("yt-url").addEventListener("keydown", e => { if (e.key === "Enter") openInNewTab(e.target.value); });
+  document.getElementById("try-sample").addEventListener("click", () => openInNewTab(SAMPLE_VIDEO));
+  document.getElementById("translate-btn").addEventListener("click", translateCaptions);
+  document.getElementById("auto-btn").addEventListener("click", autoTranscribe);
+  document.getElementById("burn-btn").addEventListener("click", burnVideo);
+  document.getElementById("line1").addEventListener("input", handleLine1Input);
+
+  // event delegation for the columns area
+  const cols = document.getElementById("columns");
+  cols.addEventListener("click", e => {
+    const dl = e.target.closest("[data-dl]"); if (dl) { exportCol(dl.dataset.dl, dl.dataset.fmt === "vtt"); return; }
+    const rm = e.target.closest("[data-rm]"); if (rm) { delete translations[rm.dataset.rm]; persist(); renderColumns(); return; }
+    const ed = e.target.closest("[data-edit]"); if (ed) { editCap(+ed.dataset.edit); return; }
+    const de = e.target.closest("[data-del]"); if (de) { delCap(+de.dataset.del); return; }
+    const sk = e.target.closest("[data-seek]"); if (sk) { seekTo(+sk.dataset.seek); return; }
+  });
+  cols.addEventListener("input", e => {
+    const tx = e.target.closest(".cue-tx"); if (!tx) return;
+    const i = +tx.dataset.i, col = tx.dataset.col, val = tx.value;
+    if (col === "source") { const parts = val.split("\n"); captions[i].line1 = parts[0] || ""; captions[i].line2 = parts.slice(1).join(" "); }
+    else if (translations[col]) { translations[col].lines[i] = val; }
+    persist();
+  });
+
+  // deep link ?v=<id or url>
+  const qp = new URLSearchParams(location.search);
+  if (qp.get("pro") === "1") IS_PRO = true; // dev/test flag
+  // Real entitlement: lib/auth.js broadcasts the signed-in user's tier.
+  document.addEventListener("subauth", (e) => { IS_PRO = (e.detail.tier && e.detail.tier !== "free") || qp.get("pro") === "1"; });
+  if (qp.get("v")) { document.body.classList.add("editing-tab"); startEditor(qp.get("v")); }
+
+  document.addEventListener("keydown", e => {
+    if (!document.getElementById("editor").classList.contains("show")) return;
+    const typing = ["INPUT","TEXTAREA"].includes(document.activeElement.tagName);
+    const mod = e.metaKey || e.ctrlKey;
+    if (mod) {
+      if (e.key.toLowerCase() === "s") { e.preventDefault(); markStart(); return; }
+      if (e.key.toLowerCase() === "e") { e.preventDefault(); markEnd(); return; }
+      if (e.key === " " || e.code === "Space") { e.preventDefault(); togglePlay(); return; }
+      if (e.key === "Enter") { e.preventDefault(); saveCaption(); return; }
+    }
+    if (typing) {
+      if (e.key === "Enter" && (document.activeElement.id === "line1" || document.activeElement.id === "line2")) {
+        e.preventDefault();
+        if (document.activeElement.id === "line1") document.getElementById("line2").focus();
+        else saveCaption();
+      }
+      return;
+    }
+    if (e.key === " " || e.code === "Space") { e.preventDefault(); togglePlay(); }
+    else if (e.key.toLowerCase() === "s") { e.preventDefault(); markStart(); }
+    else if (e.key.toLowerCase() === "e") { e.preventDefault(); markEnd(); }
+    else if (e.key === "ArrowLeft") { e.preventDefault(); seekRelative(-3); }
+    else if (e.key === "ArrowRight") { e.preventDefault(); seekRelative(3); }
+  });
+})();
 </script>
 </body>
 </html>

@@ -1,2 +1,22 @@
+# Editor / OS
 .claude/
 .DS_Store
+
+# Secrets: never commit these. Keys live in your host's environment variables.
+.env
+.env.*
+*.env
+.dev.vars            # Cloudflare Worker local secrets
+secrets.json
+*.pem
+*.key
+
+# Node
+node_modules/
+npm-debug.log*
+
+# Build / temp
+dist/
+.cache/
+tmp/
+*.log

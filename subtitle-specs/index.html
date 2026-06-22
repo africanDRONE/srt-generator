@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Subtitle Specs: Line Length, Reading Speed &amp; Festival Requirements | SubCaptions</title>
+<meta name="description" content="The subtitle rules festivals, broadcasters, and streamers expect: max 42 characters per line, two lines, reading speed under 20 cps, plus timing and SDH basics. SubCaptions enforces these by default." />
+<link rel="canonical" href="https://example.com/subtitle-specs/" />
+<link rel="stylesheet" href="/styles/pages.css" />
+</head>
+<body>
+<div class="wrap">
+  <header class="site">
+    <a class="brand" href="/"><span class="logo">🎬</span> SubCaptions</a>
+    <nav><a href="/">Captioner</a><a href="/translate.html">Translate a file</a><a href="/pricing.html">Pricing</a></nav>
+  </header>
+  <main>
+    <nav class="crumbs"><a href="/">Home</a> › <span>Subtitle specs</span></nav>
+    <h1>Subtitle specs that festivals and platforms expect</h1>
+    <p class="lede">There is no single "festival format," but festivals, broadcasters, and streamers nearly all follow the same readability rules, most famously codified in the Netflix and BBC style guides. Here is the plain-English checklist. SubCaptions follows these by default so your files pass review.</p>
+
+    <h2>The core rules</h2>
+    <div class="lang-grid">
+      <div class="lang-card"><strong>Max 2 lines</strong><span>Never more than two lines of text on screen at once.</span></div>
+      <div class="lang-card"><strong>Max 42 characters / line</strong><span>For Latin-script languages. Prefer one line unless it exceeds 42.</span></div>
+      <div class="lang-card"><strong>Reading speed ≤ 20 cps</strong><span>Up to 20 characters per second for adult content, 17 for children's.</span></div>
+      <div class="lang-card"><strong>Duration 0.83s to 7s</strong><span>No subtitle shorter than 5/6 of a second or longer than 7 seconds.</span></div>
+      <div class="lang-card"><strong>No overlaps</strong><span>Cues must not overlap, and need a small gap (about 2 frames) between them.</span></div>
+      <div class="lang-card"><strong>Accurate timecodes</strong><span>Start and end times match the speech. Standard .srt or .vtt.</span></div>
+    </div>
+
+    <h2>For accessibility (SDH)</h2>
+    <p class="lede" style="font-size:15px;">If you are making captions for the deaf and hard of hearing, also identify speakers (e.g. <code>JANE:</code>) and describe meaningful sound, like <code>[engine sputtering]</code> or <code>[tense music]</code>. Many broadcasters and US compliance rules (FCC/ADA) expect this.</p>
+
+    <h2>What festivals actually want</h2>
+    <p class="lede" style="font-size:15px;">It varies by festival, so always read each one's submission page. In practice, almost all accept one of two things: a standard <strong>.srt</strong> file (exactly what SubCaptions exports), or a screener with the subtitles <strong>burned in</strong> (rendered permanently into the picture). Non-English-language films almost always need English subtitles to be considered. Getting line length and reading speed wrong is the most common reason files get flagged, which is why the rules above matter.</p>
+
+    <h2>How SubCaptions helps</h2>
+    <p class="lede" style="font-size:15px;">The editor caps each line at 42 characters and two lines automatically, and warns you when a caption is on screen too briefly to read at 20 cps. Export a clean .srt or .vtt that meets these specs, then translate or hand it to a translator.</p>
+    <div class="cta-row"><a class="cta" href="/">Caption a video →</a><span class="cta-note">🔒 Free · no signup</span></div>
+
+    <p class="lede" style="font-size:13px;margin-top:30px;color:var(--muted);">Sources: Netflix English Timed Text Style Guide (42 chars/line, 2 lines, 20 cps adult / 17 cps children, 5/6s to 7s duration); BBC Subtitle Guidelines. Always confirm each festival's own submission requirements.</p>
+  </main>
+  <footer class="site">
+    <div><a href="/">Caption a video</a> · <a href="/translate.html">Translate a file</a> · <a href="/pricing.html">Pricing</a></div>
+    <div class="fine">SubCaptions: subtitle any video, without leaving your browser.</div>
+  </footer>
+</div>
+</body>
+</html>

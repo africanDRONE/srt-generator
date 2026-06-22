@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Translate Subtitle Files, SRT &amp; VTT in 50+ Languages | SubCaptions</title>
+<meta name="description" content="Already have a subtitle file? Translate .srt or .vtt into 50+ languages in your browser. Timecodes preserved, files never stored, no signup." />
+<link rel="canonical" href="https://example.com/translate.html" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:#f5f6fd; --surface:#fff; --surface-2:#f3f4fb; --border:#e7e8f3; --border-strong:#d8dae9;
+    --text:#161731; --text-soft:#41435f; --muted:#7d8099;
+    --brand1:#6366f1; --brand2:#a855f7; --brand3:#ec4899;
+    --grad:linear-gradient(135deg,#6366f1 0%,#a855f7 55%,#ec4899 100%);
+    --grad-soft:linear-gradient(135deg,rgba(99,102,241,.12),rgba(236,72,153,.12));
+    --success:#10b981; --error:#ef4444;
+    --shadow-sm:0 2px 8px rgba(80,70,160,.06); --shadow:0 14px 40px rgba(80,70,160,.12);
+    --radius:16px; --font-display:"Space Grotesk",system-ui,sans-serif; --font-body:"Inter",-apple-system,system-ui,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:var(--font-body);color:var(--text);background:var(--bg);line-height:1.55;font-size:15px;-webkit-font-smoothing:antialiased}
+  body::before{content:"";position:fixed;inset:0;z-index:-1;background:radial-gradient(680px 520px at 12% -5%,rgba(99,102,241,.18),transparent 60%),radial-gradient(620px 520px at 100% 0%,rgba(236,72,153,.14),transparent 55%)}
+  a{color:var(--brand1);text-decoration:none}a:hover{text-decoration:underline}
+  .wrap{max-width:920px;margin:0 auto;padding:0 22px}
+  header.nav{position:sticky;top:0;z-index:50;backdrop-filter:saturate(180%) blur(14px);background:rgba(245,246,253,.72);border-bottom:1px solid var(--border)}
+  .nav-inner{display:flex;align-items:center;justify-content:space-between;height:64px;max-width:1180px;margin:0 auto;padding:0 22px}
+  .brand{display:flex;align-items:center;gap:10px;font-family:var(--font-display);font-weight:700;font-size:19px;color:var(--text)}.brand:hover{text-decoration:none}
+  .brand .mark{width:32px;height:32px;border-radius:9px;background:var(--grad);display:flex;align-items:center;justify-content:center;color:#fff;font-size:17px}
+  .nav-links{display:flex;align-items:center;gap:24px}.nav-links a{color:var(--text-soft);font-size:14.5px;font-weight:500}.nav-links a:hover{color:var(--text);text-decoration:none}
+  .nav-cta{background:var(--text);color:#fff!important;padding:9px 18px;border-radius:10px;font-weight:600}
+  .hero{text-align:center;padding:48px 0 22px}
+  .eyebrow{display:inline-flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--border);box-shadow:var(--shadow-sm);padding:7px 15px;border-radius:999px;font-size:13px;font-weight:600;color:var(--text-soft);margin-bottom:18px}
+  h1{font-family:var(--font-display);font-size:clamp(28px,4.4vw,44px);font-weight:700;letter-spacing:-1px;line-height:1.08;margin-bottom:14px}
+  .gradient-text{background:var(--grad);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+  .sub{color:var(--text-soft);font-size:17px;max-width:560px;margin:0 auto 8px}.sub strong{color:var(--text)}
+  .back-link{display:inline-block;margin-top:14px;font-size:14px;font-weight:600}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);padding:22px;margin-top:24px}
+  #dropzone{border:2px dashed var(--border-strong);border-radius:var(--radius);padding:40px 20px;text-align:center;cursor:pointer;transition:.15s}
+  #dropzone:hover,#dropzone.drag{border-color:var(--brand1);background:var(--grad-soft)}
+  #dropzone .big{font-size:34px;margin-bottom:8px}.hint{color:var(--muted);font-size:13px;margin-top:6px}#dropzone strong{color:var(--brand1)}
+  .paste-toggle{display:block;margin:14px auto 0;background:none;border:none;color:var(--brand1);font-family:inherit;font-weight:600;font-size:13px;cursor:pointer}
+  .paste-toggle:hover{text-decoration:underline}
+  textarea#paste{width:100%;min-height:96px;resize:vertical;background:var(--surface-2);border:1px solid var(--border);color:var(--text);padding:12px 14px;border-radius:12px;outline:none;font-size:13px;font-family:"SF Mono",Menlo,monospace}
+  textarea#paste:focus{border-color:var(--brand1);background:#fff}
+  .controls{display:grid;grid-template-columns:1fr 1fr auto;gap:12px;align-items:end;margin-top:16px}
+  .field label{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);font-weight:600;margin-bottom:6px}
+  select{width:100%;background:var(--surface-2);border:1px solid var(--border-strong);color:var(--text);padding:12px 13px;border-radius:11px;outline:none;font-size:14px;font-family:inherit}
+  select:focus{border-color:var(--brand1);background:#fff}
+  .btn{cursor:pointer;font-family:inherit;font-weight:600;border:none;border-radius:11px;transition:.12s}
+  .btn-grad{background:var(--grad);color:#fff;padding:12px 24px;font-size:15px;box-shadow:0 8px 22px rgba(124,58,237,.3);white-space:nowrap}
+  .btn-grad:hover{transform:translateY(-1px)}.btn-grad:disabled{opacity:.5;cursor:not-allowed;transform:none}
+  .progress-wrap{margin-top:14px;display:none}.progress-wrap.show{display:block}
+  .progress-bar{height:8px;background:var(--surface-2);border-radius:999px;overflow:hidden;border:1px solid var(--border)}
+  .progress-fill{height:100%;width:0;background:var(--grad);transition:width .2s}
+  .progress-label{font-size:12.5px;color:var(--muted);margin-top:8px;text-align:center}
+  .limit-note{margin-top:12px;font-size:13px;color:var(--muted);text-align:center}
+  .demo-flag{display:none;margin-top:12px;font-size:12.5px;color:#92400e;background:#fef3c7;border:1px solid #fcd34d;border-radius:10px;padding:9px 14px;text-align:center}.demo-flag.show{display:block}
+  .results-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+  .results-head strong{font-family:var(--font-display);font-size:17px}
+  .dl{display:flex;gap:8px}.dl .btn{background:var(--surface-2);border:1px solid var(--border-strong);color:var(--text);padding:9px 16px;font-size:13px}.dl .btn:hover{border-color:var(--brand1);color:var(--brand1);background:#fff}
+  .col-head{display:grid;grid-template-columns:54px 1fr 1fr;gap:12px;font-size:10px;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);font-weight:600;padding:0 12px 6px}
+  .cue-list{display:flex;flex-direction:column;gap:8px;max-height:460px;overflow-y:auto;padding-right:4px}
+  .cue{background:var(--surface-2);border:1px solid var(--border);border-radius:10px;padding:10px 12px;display:grid;grid-template-columns:54px 1fr 1fr;gap:12px;align-items:start}
+  .cue .idx{color:var(--muted);font-size:11px;font-family:"SF Mono",monospace}.cue .idx .t{display:block;margin-top:3px;opacity:.7;font-size:10px}
+  .cue .src{color:var(--text-soft);font-size:13px;white-space:pre-line}
+  .cue .tgt{background:#fff;border:1px solid var(--border);color:var(--text);font-size:13px;font-family:inherit;resize:vertical;min-height:38px;width:100%;border-radius:8px;padding:7px 9px;outline:none;line-height:1.45}
+  .cue .tgt:focus{border-color:var(--brand1);box-shadow:0 0 0 3px rgba(99,102,241,.12)}
+  footer.site{margin-top:46px;padding:28px 0;border-top:1px solid var(--border);color:var(--muted);font-size:13.5px;text-align:center}footer.site a{color:var(--text-soft);margin:0 8px}
+  .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(8px);background:var(--text);color:#fff;padding:12px 22px;border-radius:12px;font-size:14px;font-weight:500;opacity:0;pointer-events:none;transition:.2s;z-index:200;box-shadow:var(--shadow)}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}.toast.error{background:var(--error)}.toast.success{background:var(--success)}
+  .hidden{display:none!important}
+  @media(max-width:680px){.controls{grid-template-columns:1fr}.cue,.col-head{grid-template-columns:44px 1fr}.cue .src,.col-head span:nth-child(2){display:none}}
+</style>
+</head>
+<body>
+<header class="nav">
+  <div class="nav-inner">
+    <a class="brand" href="/"><span class="mark">🎬</span> SubCaptions</a>
+    <nav class="nav-links">
+      <a href="/">Captioner</a>
+      <a href="/languages/">Languages</a>
+      <a href="/pricing.html">Pricing</a>
+      <a href="/" class="nav-cta">Caption a video</a>
+    </nav>
+  </div>
+</header>
+
+<div class="wrap">
+  <section class="hero">
+    <div class="eyebrow">📄 Already have a subtitle file?</div>
+    <h1>Translate <span class="gradient-text">.srt &amp; .vtt</span> files</h1>
+    <p class="sub">Drop in a subtitle file, pick a language, and download the translation. Timecodes preserved, <strong>files never stored</strong>. No signup.</p>
+    <a class="back-link" href="/">← Or caption a YouTube video from scratch</a>
+  </section>
+
+  <div class="card" id="input-card">
+    <div id="dropzone">
+      <div class="big">📂</div>
+      <div>Drag a subtitle file here, or <strong>click to browse</strong></div>
+      <div class="hint">.srt and .vtt, up to <span id="lim">200</span> lines free</div>
+      <input type="file" id="file-input" accept=".srt,.vtt,text/plain" class="hidden" />
+    </div>
+    <button type="button" class="paste-toggle" id="paste-toggle">+ Paste subtitle text instead</button>
+    <textarea id="paste" class="hidden" placeholder="1&#10;00:00:01,000 --> 00:00:04,000&#10;Your subtitle text…"></textarea>
+    <div class="controls">
+      <div class="field"><label for="src-lang">From</label><select id="src-lang"></select></div>
+      <div class="field"><label for="tgt-lang">To</label><select id="tgt-lang"></select></div>
+      <div class="field"><button class="btn btn-grad" id="translate-btn" disabled>Translate →</button></div>
+    </div>
+    <div class="demo-flag" id="demo-flag">Demo mode: translations are simulated locally (no API key configured). Parsing, editing, and export are live.</div>
+    <div class="progress-wrap" id="progress-wrap"><div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div><div class="progress-label" id="progress-label">Translating…</div></div>
+    <div class="limit-note" id="limit-note"></div>
+  </div>
+
+  <div class="card hidden" id="results-card">
+    <div class="results-head">
+      <strong id="results-title">Translation</strong>
+      <div class="dl"><button class="btn" id="dl-srt">⬇ .srt</button><button class="btn" id="dl-vtt">⬇ .vtt</button></div>
+    </div>
+    <div class="col-head"><span>#</span><span>Original</span><span>Translation (editable)</span></div>
+    <div class="cue-list" id="cue-list"></div>
+  </div>
+
+  <footer class="site">
+    <div><a href="/">Captioner</a> · <a href="/languages/">Languages</a> · <a href="/pricing.html">Pricing</a></div>
+    <div style="margin-top:10px;">SubCaptions, translate .srt &amp; .vtt files free, in your browser.</div>
+  </footer>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const API_BASE = "";
+const FREE_LINE_LIMIT = 200, BATCH_SIZE = 40, DEMO = !API_BASE;
+const LANGUAGES = [["Spanish","es"],["French","fr"],["German","de"],["Italian","it"],["Portuguese","pt"],["Portuguese (Brazil)","pt-BR"],["Dutch","nl"],["Russian","ru"],["Polish","pl"],["Turkish","tr"],["Arabic","ar"],["Hebrew","he"],["Hindi","hi"],["Bengali","bn"],["Urdu","ur"],["Japanese","ja"],["Korean","ko"],["Chinese (Simplified)","zh-CN"],["Chinese (Traditional)","zh-TW"],["Vietnamese","vi"],["Thai","th"],["Indonesian","id"],["Malay","ms"],["Filipino","tl"],["Ukrainian","uk"],["Czech","cs"],["Slovak","sk"],["Romanian","ro"],["Hungarian","hu"],["Greek","el"],["Bulgarian","bg"],["Serbian","sr"],["Croatian","hr"],["Swedish","sv"],["Norwegian","no"],["Danish","da"],["Finnish","fi"],["English","en"],["Persian","fa"],["Swahili","sw"],["Tamil","ta"],["Telugu","te"],["Marathi","mr"],["Catalan","ca"]];
+let cues = [], sourceName = "subtitles", translated = false;
+
+function tcToSeconds(tc){tc=tc.trim().replace(",",".");const p=tc.split(":");let h=0,m=0,s=0;if(p.length===3){h=+p[0];m=+p[1];s=parseFloat(p[2]);}else if(p.length===2){m=+p[0];s=parseFloat(p[1]);}else s=parseFloat(p[0]);return h*3600+m*60+s;}
+function secondsToTc(sec,vtt){if(sec==null||isNaN(sec))sec=0;if(sec<0)sec=0;const h=Math.floor(sec/3600),m=Math.floor((sec%3600)/60),s=Math.floor(sec%60),ms=Math.round((sec-Math.floor(sec))*1000),sep=vtt?".":",",p=(n,l)=>String(n).padStart(l,"0");return `${p(h,2)}:${p(m,2)}:${p(s,2)}${sep}${p(ms,3)}`;}
+function parseSubtitles(raw){raw=raw.replace(/\r\n/g,"\n").replace(/\r/g,"\n").trim();const isVtt=/^WEBVTT/.test(raw);if(isVtt)raw=raw.replace(/^WEBVTT.*?(\n\n|$)/s,"").trim();const blocks=raw.split(/\n\s*\n/);const out=[];const timeRe=/(\d{1,2}:)?\d{1,2}:\d{2}[.,]\d{1,3}\s*-->\s*(\d{1,2}:)?\d{1,2}:\d{2}[.,]\d{1,3}/;for(const b of blocks){const lines=b.split("\n");let ti=-1;for(let i=0;i<lines.length;i++){if(timeRe.test(lines[i])){ti=i;break;}}if(ti===-1)continue;const m=lines[ti].match(/((?:\d{1,2}:)?\d{1,2}:\d{2}[.,]\d{1,3})\s*-->\s*((?:\d{1,2}:)?\d{1,2}:\d{2}[.,]\d{1,3})/);if(!m)continue;const text=lines.slice(ti+1).map(l=>l.trim()).filter(Boolean).join("\n");if(!text)continue;out.push({index:out.length+1,start:tcToSeconds(m[1]),end:tcToSeconds(m[2]),text,translation:""});}return out;}
+
+async function translateBatch(texts,source,target){
+  if(DEMO){await new Promise(r=>setTimeout(r,350));return texts.map(t=>`[${target}] `+t);}
+  const res=await fetch(API_BASE.replace(/\/$/,"")+"/translate",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({source,target,cues:texts})});
+  if(res.status===429)throw new Error("Rate limit reached, try again shortly.");
+  if(!res.ok)throw new Error("Translation failed ("+res.status+")");
+  const d=await res.json();if(!d.translations||d.translations.length!==texts.length)throw new Error("Unexpected response");return d.translations;
+}
+async function runTranslation(){
+  if(!cues.length){toast("Add a file or paste text first","error");return;}
+  if(cues.length>FREE_LINE_LIMIT){toast("Over the free limit, Pro handles full-length files","error");location.href="/pricing.html";return;}
+  const srcSel=document.getElementById("src-lang").value;
+  const tgt=document.getElementById("tgt-lang").value, tgtName=document.getElementById("tgt-lang").selectedOptions[0].textContent;
+  const src=srcSel==="auto"?"auto-detected language":document.getElementById("src-lang").selectedOptions[0].textContent;
+  setBusy(true);document.getElementById("progress-wrap").classList.add("show");
+  try{
+    let done=0;
+    for(let i=0;i<cues.length;i+=BATCH_SIZE){const chunk=cues.slice(i,i+BATCH_SIZE);const t=await translateBatch(chunk.map(c=>c.text),src,tgt);chunk.forEach((c,j)=>c.translation=t[j]);done+=chunk.length;const pct=Math.round(done/cues.length*100);document.getElementById("progress-fill").style.width=pct+"%";document.getElementById("progress-label").textContent=`Translating… ${done}/${cues.length}`;render();}
+    translated=true;document.getElementById("results-title").textContent=`Translation → ${tgtName}`;toast("Done, review & edit below","success");
+  }catch(e){toast(e.message||"Something went wrong","error");}finally{setBusy(false);setTimeout(()=>document.getElementById("progress-wrap").classList.remove("show"),600);}
+}
+function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function render(){const list=document.getElementById("cue-list");document.getElementById("results-card").classList.remove("hidden");list.innerHTML=cues.map((c,i)=>`<div class="cue"><div class="idx">#${c.index}<span class="t">${secondsToTc(c.start).slice(0,8)}</span></div><div class="src">${escapeHtml(c.text)}</div><textarea class="tgt" data-i="${i}" placeholder="(translation)">${escapeHtml(c.translation)}</textarea></div>`).join("");list.querySelectorAll(".tgt").forEach(t=>t.addEventListener("input",e=>cues[+e.target.dataset.i].translation=e.target.value));}
+function buildOutput(vtt){const body=cues.map((c,i)=>{const text=(translated&&c.translation)?c.translation:c.text;return `${i+1}\n${secondsToTc(c.start,vtt)} --> ${secondsToTc(c.end,vtt)}\n${text}\n`;}).join("\n");return vtt?"WEBVTT\n\n"+body:body;}
+function download(vtt){if(!cues.length){toast("Nothing to export","error");return;}const blob=new Blob([buildOutput(vtt)],{type:"text/plain;charset=utf-8"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=`${sourceName}-${translated?document.getElementById("tgt-lang").value:"copy"}.${vtt?"vtt":"srt"}`;document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);}
+function ingest(raw,name){cues=parseSubtitles(raw);if(!cues.length){toast("Couldn't find subtitles in that file","error");return;}sourceName=(name||"subtitles").replace(/\.(srt|vtt|txt)$/i,"");translated=false;document.getElementById("translate-btn").disabled=false;const note=document.getElementById("limit-note");if(cues.length>FREE_LINE_LIMIT){note.innerHTML=`Loaded <strong style="color:var(--brand3)">${cues.length}</strong> lines, over the free limit of ${FREE_LINE_LIMIT}. <a href="/pricing.html">See Pro →</a>`;}else{note.innerHTML=`Loaded <strong style="color:var(--text)">${cues.length}</strong> lines, ready to translate.`;}render();document.getElementById("results-title").textContent="Loaded subtitles (not yet translated)";}
+function handleFile(f){if(!f)return;if(f.size>2*1024*1024){toast("File too large (2 MB max free)","error");return;}sourceName=f.name;const r=new FileReader();r.onload=e=>ingest(e.target.result,f.name);r.readAsText(f);}
+function setBusy(b){const btn=document.getElementById("translate-btn");btn.disabled=b;btn.textContent=b?"Translating…":"Translate →";}
+let toastTimer=null;function toast(msg,type){const el=document.getElementById("toast");el.textContent=msg;el.className="toast show"+(type?" "+type:"");clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.classList.remove("show"),2200);}
+(function init(){
+  const src=document.getElementById("src-lang"),tgt=document.getElementById("tgt-lang");
+  src.innerHTML=`<option value="auto">Auto-detect</option>`+LANGUAGES.map(([n,c])=>`<option value="${c}">${n}</option>`).join("");
+  tgt.innerHTML=LANGUAGES.map(([n,c])=>`<option value="${c}">${n}</option>`).join("");tgt.value="es";
+  document.getElementById("lim").textContent=FREE_LINE_LIMIT;
+  if(DEMO)document.getElementById("demo-flag").classList.add("show");
+  const codes=LANGUAGES.map(l=>l[1]),qp=new URLSearchParams(location.search);
+  if(qp.get("from")&&(qp.get("from")==="auto"||codes.includes(qp.get("from"))))src.value=qp.get("from");
+  if(qp.get("to")&&codes.includes(qp.get("to")))tgt.value=qp.get("to");
+  const dz=document.getElementById("dropzone"),fi=document.getElementById("file-input");
+  dz.addEventListener("click",()=>fi.click());
+  fi.addEventListener("change",e=>handleFile(e.target.files[0]));
+  dz.addEventListener("dragover",e=>{e.preventDefault();dz.classList.add("drag");});
+  dz.addEventListener("dragleave",()=>dz.classList.remove("drag"));
+  dz.addEventListener("drop",e=>{e.preventDefault();dz.classList.remove("drag");if(e.dataTransfer.files[0])handleFile(e.dataTransfer.files[0]);});
+  document.getElementById("paste-toggle").addEventListener("click",()=>{const ta=document.getElementById("paste");const open=ta.classList.toggle("hidden")===false;document.getElementById("paste-toggle").textContent=(open?"– ":"+ ")+"Paste subtitle text instead";if(open)ta.focus();});
+  let pt=null;document.getElementById("paste").addEventListener("input",e=>{clearTimeout(pt);pt=setTimeout(()=>{const v=e.target.value.trim();if(v.length>20)ingest(v,"pasted");},500);});
+  document.getElementById("translate-btn").addEventListener("click",runTranslation);
+  document.getElementById("dl-srt").addEventListener("click",()=>download(false));
+  document.getElementById("dl-vtt").addEventListener("click",()=>download(true));
+})();
+</script>
+</body>
+</html>
