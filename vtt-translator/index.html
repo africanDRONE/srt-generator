@@ -16,11 +16,15 @@
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"What's the difference between SRT and VTT?","acceptedAnswer":{"@type":"Answer","text":"They're nearly identical caption formats. VTT (WebVTT) is used by HTML5 video and web players; SRT is the universal editor/desktop format. This tool reads and writes both, so it doubles as an SRT↔VTT converter."}},{"@type":"Question","name":"Will styling and cue settings survive?","acceptedAnswer":{"@type":"Answer","text":"The dialogue text and timecodes are preserved. Advanced VTT cue positioning is simplified on export, for standard captions this is exactly what you want."}},{"@type":"Question","name":"Can I translate VTT for a website player?","acceptedAnswer":{"@type":"Answer","text":"Yes. Export the translated .vtt and point your `<track srclang>` at it for each language."}}]}</script>
 </head>
 <body>
+<header class="nav"><div class="wrap nav-inner">
+  <a class="brand" href="/"><img class="mark" src="/assets/logo.svg" width="34" height="34" alt="" /> SubCaptions</a>
+  <nav class="nav-links">
+    <a href="/translate.html">Translate</a>
+    <a href="/pricing.html">Pricing</a>
+    <a href="#" id="account-link" data-account>Sign in</a>
+  </nav>
+</div></header>
 <div class="wrap">
-  <header class="site">
-    <a class="brand" href="/"><img class="logo" src="/assets/logo.svg" width="30" height="30" alt="" /> SubCaptions</a>
-    <nav><a href="/">Captioner</a><a href="/translate.html">Translate a file</a><a href="/languages/">Languages</a><a href="/pricing.html">Pricing</a></nav>
-  </header>
   <main>
     <nav class="crumbs"><a href="/">Home</a> › <span>VTT Translator, Translate WebVTT Caption Files</span></nav>
     <h1>Translate .vtt (WebVTT) caption files</h1>
@@ -33,9 +37,10 @@
     <section class="related"><h2>Popular language pairs</h2><div class="chips"><a href="/translate-srt-to-spanish/">SRT to Spanish</a><a href="/translate-srt-to-portuguese/">SRT to Portuguese (Brazil)</a><a href="/translate-srt-to-french/">SRT to French</a><a href="/translate-srt-to-german/">SRT to German</a><a href="/translate-srt-to-japanese/">SRT to Japanese</a><a href="/translate-srt-to-korean/">SRT to Korean</a><a href="/translate-srt-to-hindi/">SRT to Hindi</a><a href="/translate-srt-to-arabic/">SRT to Arabic</a><a href="/translate-srt-to-chinese/">SRT to Chinese (Simplified)</a><a href="/translate-srt-to-russian/">SRT to Russian</a><a href="/translate-srt-to-italian/">SRT to Italian</a><a href="/translate-srt-to-turkish/">SRT to Turkish</a></div></section>
   </main>
   <footer class="site">
-    <div><a href="/">Caption a video</a> · <a href="/translate.html">Translate a file</a> · <a href="/languages/">All languages</a> · <a href="/pricing.html">Pricing</a></div>
+    <div><a href="/">Caption a video</a> · <a href="/translate.html">Translate</a> · <a href="/languages/">All languages</a> · <a href="/pricing.html">Pricing</a></div>
     <div class="fine">SubCaptions, Subtitle any YouTube video in your browser, then translate it. Files are parsed in your browser and never stored.</div>
   </footer>
 </div>
+<script type="module" src="/lib/auth.js"></script>
 </body>
 </html>

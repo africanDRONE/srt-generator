@@ -51,17 +51,22 @@ function page({ title, metaDesc, canonical, h1, bodyHtml, jsonLd }) {
 ${jsonLd ? `<script type="application/ld+json">${JSON.stringify(jsonLd)}</script>` : ""}
 </head>
 <body>
+<header class="nav"><div class="wrap nav-inner">
+  <a class="brand" href="/"><img class="mark" src="/assets/logo.svg" width="34" height="34" alt="" /> ${esc(SITE.name)}</a>
+  <nav class="nav-links">
+    <a href="/translate.html">Translate</a>
+    <a href="/pricing.html">Pricing</a>
+    <a href="#" id="account-link" data-account>Sign in</a>
+  </nav>
+</div></header>
 <div class="wrap">
-  <header class="site">
-    <a class="brand" href="/"><img class="logo" src="/assets/logo.svg" width="30" height="30" alt="" /> ${esc(SITE.name)}</a>
-    <nav><a href="/">Captioner</a><a href="/translate.html">Translate a file</a><a href="/languages/">Languages</a><a href="/pricing.html">Pricing</a></nav>
-  </header>
   <main>${bodyHtml}</main>
   <footer class="site">
-    <div><a href="/">Caption a video</a> · <a href="/translate.html">Translate a file</a> · <a href="/languages/">All languages</a> · <a href="/pricing.html">Pricing</a></div>
+    <div><a href="/">Caption a video</a> · <a href="/translate.html">Translate</a> · <a href="/languages/">All languages</a> · <a href="/pricing.html">Pricing</a></div>
     <div class="fine">${esc(SITE.name)}, ${esc(SITE.tagline)} Files are parsed in your browser and never stored.</div>
   </footer>
 </div>
+<script type="module" src="/lib/auth.js"></script>
 </body>
 </html>`;
 }
@@ -257,6 +262,13 @@ header.site{display:flex;align-items:center;justify-content:space-between;gap:16
 .brand{display:flex;align-items:center;gap:10px;font-family:var(--fd);font-weight:700;font-size:18px;color:var(--text)}.brand:hover{text-decoration:none}
 .brand .logo{width:30px;height:30px;border-radius:8px;background:var(--grad);display:flex;align-items:center;justify-content:center;color:#fff;box-shadow:var(--shadow-sm)}
 header.site nav a{color:var(--text-soft);margin-left:20px;font-size:14px;font-weight:500}header.site nav a:hover{color:var(--text);text-decoration:none}
+header.nav{position:sticky;top:0;z-index:50;backdrop-filter:saturate(180%) blur(14px);background:rgba(245,246,253,.78);border-bottom:1px solid var(--border);margin-bottom:30px}
+header.nav .nav-inner{max-width:1180px;margin:0 auto;padding:0 22px;display:flex;align-items:center;justify-content:space-between;height:64px;gap:16px}
+header.nav .brand{font-size:19px}
+header.nav .brand .mark{width:34px;height:34px;border-radius:10px;background:var(--grad);box-shadow:var(--shadow-sm);display:block;flex:none}
+header.nav .nav-links{display:flex;align-items:center;gap:26px}
+header.nav .nav-links a{color:var(--text-soft);font-size:14.5px;font-weight:500;margin:0}header.nav .nav-links a:hover{color:var(--text);text-decoration:none}
+@media(max-width:560px){header.nav .nav-links{gap:16px}header.nav .nav-links a{font-size:13px}}
 .crumbs{color:var(--muted);font-size:13px;margin-bottom:16px}.crumbs span{color:var(--text)}
 h1{font-family:var(--fd);font-size:clamp(28px,4vw,40px);font-weight:700;letter-spacing:-0.8px;margin-bottom:16px;line-height:1.12}
 h2{font-family:var(--fd);font-size:23px;margin:34px 0 14px;letter-spacing:-0.3px}

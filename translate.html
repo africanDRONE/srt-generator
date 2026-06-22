@@ -6,6 +6,9 @@
 <title>Translate Subtitle Files, SRT &amp; VTT in 50+ Languages | SubCaptions</title>
 <meta name="description" content="Already have a subtitle file? Translate .srt or .vtt into 50+ languages in your browser. Timecodes preserved, files never stored, no signup." />
 <link rel="canonical" href="https://subcaptions.com/translate.html" />
+<link rel="icon" type="image/svg+xml" href="/assets/logo.svg" />
+<link rel="icon" type="image/png" sizes="32x32" href="/assets/logo-32.png" />
+<link rel="apple-touch-icon" href="/assets/logo-180.png" />
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -28,7 +31,7 @@
   header.nav{position:sticky;top:0;z-index:50;backdrop-filter:saturate(180%) blur(14px);background:rgba(245,246,253,.72);border-bottom:1px solid var(--border)}
   .nav-inner{display:flex;align-items:center;justify-content:space-between;height:64px;max-width:1180px;margin:0 auto;padding:0 22px}
   .brand{display:flex;align-items:center;gap:10px;font-family:var(--font-display);font-weight:700;font-size:19px;color:var(--text)}.brand:hover{text-decoration:none}
-  .brand .mark{width:32px;height:32px;border-radius:9px;background:var(--grad);display:flex;align-items:center;justify-content:center;color:#fff;font-size:17px}
+  .brand .mark{width:34px;height:34px;border-radius:10px;background:var(--grad);box-shadow:var(--shadow-sm);display:block;flex:none}
   .nav-links{display:flex;align-items:center;gap:24px}.nav-links a{color:var(--text-soft);font-size:14.5px;font-weight:500}.nav-links a:hover{color:var(--text);text-decoration:none}
   .nav-cta{background:var(--text);color:#fff!important;padding:9px 18px;border-radius:10px;font-weight:600}
   .hero{text-align:center;padding:48px 0 22px}
@@ -78,12 +81,11 @@
 <body>
 <header class="nav">
   <div class="nav-inner">
-    <a class="brand" href="/"><span class="mark">🎬</span> SubCaptions</a>
+    <a class="brand" href="/"><img class="mark" src="/assets/logo.svg" width="34" height="34" alt="" /> SubCaptions</a>
     <nav class="nav-links">
-      <a href="/">Captioner</a>
-      <a href="/languages/">Languages</a>
+      <a href="/translate.html">Translate</a>
       <a href="/pricing.html">Pricing</a>
-      <a href="/" class="nav-cta">Caption a video</a>
+      <a href="#" id="account-link" data-account>Sign in</a>
     </nav>
   </div>
 </header>
@@ -191,5 +193,6 @@ let toastTimer=null;function toast(msg,type){const el=document.getElementById("t
   document.getElementById("dl-vtt").addEventListener("click",()=>download(true));
 })();
 </script>
+<script type="module" src="/lib/auth.js"></script>
 </body>
 </html>

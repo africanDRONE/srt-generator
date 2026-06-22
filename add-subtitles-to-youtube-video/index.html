@@ -16,11 +16,15 @@
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Does it transcribe the audio for me?","acceptedAnswer":{"@type":"Answer","text":"No. This is a captioning editor, not auto-transcription: you type each line, which means the captions are accurate and read naturally rather than full of speech-recognition errors. The keyboard shortcuts make it fast, and the live preview means you never have to guess the timing."}},{"@type":"Question","name":"Will the subtitles stay in sync on YouTube?","acceptedAnswer":{"@type":"Answer","text":"Yes. You set each in and out point against the actual video, and the exported .srt carries those exact timecodes, so it lines up when you upload it."}},{"@type":"Question","name":"Do I lose my work if I close the tab?","acceptedAnswer":{"@type":"Answer","text":"No. Your captions are saved locally in your browser per video, so you can close the tab and pick up where you left off."}},{"@type":"Question","name":"Is it really free?","acceptedAnswer":{"@type":"Answer","text":"Captioning and exporting are free. Translating your finished captions into other languages is free for normal-size files; Pro covers high volume."}}]}</script>
 </head>
 <body>
+<header class="nav"><div class="wrap nav-inner">
+  <a class="brand" href="/"><img class="mark" src="/assets/logo.svg" width="34" height="34" alt="" /> SubCaptions</a>
+  <nav class="nav-links">
+    <a href="/translate.html">Translate</a>
+    <a href="/pricing.html">Pricing</a>
+    <a href="#" id="account-link" data-account>Sign in</a>
+  </nav>
+</div></header>
 <div class="wrap">
-  <header class="site">
-    <a class="brand" href="/"><img class="logo" src="/assets/logo.svg" width="30" height="30" alt="" /> SubCaptions</a>
-    <nav><a href="/">Captioner</a><a href="/translate.html">Translate a file</a><a href="/languages/">Languages</a><a href="/pricing.html">Pricing</a></nav>
-  </header>
   <main>
     <nav class="crumbs"><a href="/">Home</a> › <span>How to Add Subtitles to a YouTube Video (Free, No Software)</span></nav>
     <h1>Add subtitles to your YouTube video</h1>
@@ -35,9 +39,10 @@
     <section class="related"><h2>Or translate subtitles</h2><div class="chips"><a href="/translate.html">Translate a file</a><a href="/translate-srt-to-spanish/">SRT to Spanish</a><a href="/translate-srt-to-portuguese/">SRT to Portuguese (Brazil)</a><a href="/translate-srt-to-french/">SRT to French</a><a href="/translate-srt-to-german/">SRT to German</a><a href="/translate-srt-to-japanese/">SRT to Japanese</a><a href="/translate-srt-to-korean/">SRT to Korean</a><a href="/translate-srt-to-hindi/">SRT to Hindi</a><a href="/translate-srt-to-arabic/">SRT to Arabic</a></div></section>
   </main>
   <footer class="site">
-    <div><a href="/">Caption a video</a> · <a href="/translate.html">Translate a file</a> · <a href="/languages/">All languages</a> · <a href="/pricing.html">Pricing</a></div>
+    <div><a href="/">Caption a video</a> · <a href="/translate.html">Translate</a> · <a href="/languages/">All languages</a> · <a href="/pricing.html">Pricing</a></div>
     <div class="fine">SubCaptions, Subtitle any YouTube video in your browser, then translate it. Files are parsed in your browser and never stored.</div>
   </footer>
 </div>
+<script type="module" src="/lib/auth.js"></script>
 </body>
 </html>

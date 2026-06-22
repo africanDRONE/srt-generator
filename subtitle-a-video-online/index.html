@@ -16,11 +16,15 @@
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Do I have to upload my video?","acceptedAnswer":{"@type":"Answer","text":"No. You point it at a YouTube link; the video plays from YouTube and your captions are built and stored locally in your browser."}},{"@type":"Question","name":"Can I subtitle a video that isn't mine?","acceptedAnswer":{"@type":"Answer","text":"You can caption any YouTube video for things like language practice or fan subs. Respect the original creator's rights when you publish or share the result."}},{"@type":"Question","name":"Is there a time limit on the video?","acceptedAnswer":{"@type":"Answer","text":"Short and medium videos are free. Very long videos are a Pro feature."}}]}</script>
 </head>
 <body>
+<header class="nav"><div class="wrap nav-inner">
+  <a class="brand" href="/"><img class="mark" src="/assets/logo.svg" width="34" height="34" alt="" /> SubCaptions</a>
+  <nav class="nav-links">
+    <a href="/translate.html">Translate</a>
+    <a href="/pricing.html">Pricing</a>
+    <a href="#" id="account-link" data-account>Sign in</a>
+  </nav>
+</div></header>
 <div class="wrap">
-  <header class="site">
-    <a class="brand" href="/"><img class="logo" src="/assets/logo.svg" width="30" height="30" alt="" /> SubCaptions</a>
-    <nav><a href="/">Captioner</a><a href="/translate.html">Translate a file</a><a href="/languages/">Languages</a><a href="/pricing.html">Pricing</a></nav>
-  </header>
   <main>
     <nav class="crumbs"><a href="/">Home</a> › <span>Subtitle a Video Online, Free (No Download)</span></nav>
     <h1>Subtitle a video online, free</h1>
@@ -34,9 +38,10 @@
     <section class="related"><h2>Or translate subtitles</h2><div class="chips"><a href="/translate.html">Translate a file</a><a href="/translate-srt-to-spanish/">SRT to Spanish</a><a href="/translate-srt-to-portuguese/">SRT to Portuguese (Brazil)</a><a href="/translate-srt-to-french/">SRT to French</a><a href="/translate-srt-to-german/">SRT to German</a><a href="/translate-srt-to-japanese/">SRT to Japanese</a><a href="/translate-srt-to-korean/">SRT to Korean</a><a href="/translate-srt-to-hindi/">SRT to Hindi</a><a href="/translate-srt-to-arabic/">SRT to Arabic</a></div></section>
   </main>
   <footer class="site">
-    <div><a href="/">Caption a video</a> · <a href="/translate.html">Translate a file</a> · <a href="/languages/">All languages</a> · <a href="/pricing.html">Pricing</a></div>
+    <div><a href="/">Caption a video</a> · <a href="/translate.html">Translate</a> · <a href="/languages/">All languages</a> · <a href="/pricing.html">Pricing</a></div>
     <div class="fine">SubCaptions, Subtitle any YouTube video in your browser, then translate it. Files are parsed in your browser and never stored.</div>
   </footer>
 </div>
+<script type="module" src="/lib/auth.js"></script>
 </body>
 </html>
