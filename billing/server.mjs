@@ -68,9 +68,23 @@ app.post("/billing/webhook", express.raw({ type: "application/json" }), async (r
   try {
     if (event.type === "checkout.session.completed") {
       const s = event.data.object;
-      // Link the Stripe customer to our user (set at checkout via client_reference_id).
-      if (s.client_reference_id && s.customer) {
-        await supabase.from("profiles").update({ stripe_customer_id: s.customer, updated_at: new Date().toISOString() }).eq("id", s.client_reference_id);
+      // Set BOTH the customer link and the tier here, keyed by our user id
+      // (client_reference_id). Doing the tier in this event avoids a race where
+      // the subscription event arrives before the customer has been linked,
+      // which would leave a paying user stuck on "free".
+      if (s.client_reference_id) {
+        let tier = "free";
+        try {
+          if (s.subscription) {
+            const sub = await stripe.subscriptions.retrieve(s.subscription);
+            tier = PRICE_TO_TIER[sub.items.data[0].price.id] || "free";
+          }
+        } catch (e) { console.error("subscription retrieve failed", e); }
+        await supabase.from("profiles").update({
+          stripe_customer_id: s.customer || null,
+          tier,
+          updated_at: new Date().toISOString(),
+        }).eq("id", s.client_reference_id);
       }
     } else if (event.type.startsWith("customer.subscription.")) {
       const sub = event.data.object;
