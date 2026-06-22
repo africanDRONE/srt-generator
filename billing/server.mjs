@@ -124,8 +124,18 @@ app.post("/billing/checkout", async (req, res) => {
   const price = PLAN_TO_PRICE[req.body?.plan];
   if (!price) return res.status(400).json({ error: "Unknown plan" });
 
-  // Reuse the user's Stripe customer if we have one, else let Checkout create it.
-  const { data: profile } = await supabase.from("profiles").select("stripe_customer_id").eq("id", user.id).single();
+  const { data: profile } = await supabase.from("profiles").select("stripe_customer_id, tier").eq("id", user.id).single();
+
+  // Already on a paid plan: never open a second checkout (it would create a
+  // duplicate subscription and double-charge). Send them to the billing portal
+  // to change or cancel the existing subscription instead.
+  if ((profile?.tier === "solo" || profile?.tier === "team") && profile?.stripe_customer_id) {
+    const portal = await stripe.billingPortal.sessions.create({
+      customer: profile.stripe_customer_id,
+      return_url: `${process.env.APP_URL}/`,
+    });
+    return res.json({ url: portal.url, portal: true });
+  }
 
   const session = await stripe.checkout.sessions.create({
     mode: "subscription",
