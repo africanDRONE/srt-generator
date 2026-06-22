@@ -181,7 +181,7 @@
 <div class="wrap" id="top">
   <section class="hero" id="hero">
     <h1 class="hero-title">Subtitle any video,<br><span class="gradient-text">without leaving your browser</span></h1>
-    <p class="hero-sub">Paste a link, type captions <strong>in time with the video</strong>, and export a clean <strong>.srt</strong>. Do it yourself, hand the link to a translator, or translate into 50+ languages side by side.</p>
+    <p class="hero-sub">Paste a link, type captions <strong>in time with the video</strong>, and export a clean <strong>.srt</strong>, <strong>completely free, no signup</strong>. Pro adds AI auto-captions, unlimited translations, and burned-in video.</p>
 
     <div class="url-launch">
       <input type="text" id="yt-url" placeholder="Paste a video link to start…" autocomplete="off" />
@@ -189,7 +189,7 @@
     </div>
     <div class="sources">Works with <b>YouTube</b>, <b>Vimeo</b>, <b>Rushes.cc</b>, <b>Dropbox</b>, <b>Google Drive</b>, and direct video files (.mp4, .webm, .mov).</div>
     <div class="hero-foot">
-      <span>✨ Free, no account</span>
+      <span>✨ Captioning is 100% free, no account</span>
       <span>🔒 Captions stay in your browser</span>
       <button class="try-sample" id="try-sample">▶ Try it with a sample video</button>
     </div>
@@ -234,7 +234,7 @@
             <button class="btn clear-btn" onclick="clearCurrent()">Clear</button>
             <button class="btn save-btn" id="saveBtn" onclick="saveCaption()">Save caption</button>
           </div>
-          <div class="kbd-hint"><kbd>Space</kbd> play · <kbd>S</kbd> in · <kbd>E</kbd> out · <kbd>Enter</kbd> save</div>
+          <div class="kbd-hint"><kbd>⌥Space</kbd> play · <kbd>⌥S</kbd> in · <kbd>⌥E</kbd> out · <kbd>⌥Enter</kbd> save — works right from the caption box</div>
         </div>
       </div>
 
@@ -246,12 +246,12 @@
             <button class="btn" id="translate-btn">Translate</button>
           </div>
         </div>
-        <button class="btn auto-btn" id="burn-btn">🎬 Export burned-in video <span class="pro-tag">Pro</span></button>
         <div class="columns-head">
           <h3>Captions <span class="hint" id="col-count">(0)</span></h3>
           <span class="hint">Each box exports its own .srt / .vtt.</span>
         </div>
         <div class="columns" id="columns"></div>
+        <button class="btn auto-btn" id="burn-btn" style="margin-top:16px">🎬 Export burned-in video <span class="pro-tag">Pro</span></button>
       </div>
     </div>
   </section>
@@ -296,7 +296,7 @@
   </div>
 
   <footer class="site">
-    <div><a href="/">Captioner</a> · <a href="/translate.html">Translate a file</a> · <a href="/subtitle-specs/">Subtitle specs</a> · <a href="/languages/">Languages</a> · <a href="/pricing.html">Pricing</a></div>
+    <div><a href="/">Caption</a> · <a href="/translate.html">Translate</a> · <a href="/pricing.html">Pricing</a> · <a href="/privacy.html">Privacy</a> · <a href="/terms.html">Terms</a></div>
     <div style="margin-top:10px;">SubCaptions: subtitle any video, without leaving your browser.</div>
   </footer>
 </div>
@@ -579,7 +579,6 @@ function editCap(i){
   document.getElementById("line1").focus();
 }
 function delCap(i){
-  if (!confirm("Delete this caption?")) return;
   captions.splice(i,1);
   Object.values(translations).forEach(tr => tr.lines.splice(i,1)); // keep columns aligned
   if (editingIdx === i) clearCurrent(); else if (editingIdx !== null && editingIdx > i) editingIdx--;
@@ -827,12 +826,15 @@ function toast(msg, type){
   document.addEventListener("keydown", e => {
     if (!document.getElementById("editor").classList.contains("show")) return;
     const typing = ["INPUT","TEXTAREA"].includes(document.activeElement.tagName);
-    const mod = e.metaKey || e.ctrlKey;
+    // ⌥ (Option), Cmd, or Ctrl + key works from ANYWHERE, including inside the
+    // caption box, so you never have to click out to play/mark/save. Match on
+    // physical key code so Option+letter doesn't type a special character.
+    const mod = e.metaKey || e.ctrlKey || e.altKey;
     if (mod) {
-      if (e.key.toLowerCase() === "s") { e.preventDefault(); markStart(); return; }
-      if (e.key.toLowerCase() === "e") { e.preventDefault(); markEnd(); return; }
-      if (e.key === " " || e.code === "Space") { e.preventDefault(); togglePlay(); return; }
-      if (e.key === "Enter") { e.preventDefault(); saveCaption(); return; }
+      if (e.code === "KeyS") { e.preventDefault(); markStart(); return; }
+      if (e.code === "KeyE") { e.preventDefault(); markEnd(); return; }
+      if (e.code === "Space") { e.preventDefault(); togglePlay(); return; }
+      if (e.code === "Enter" || e.code === "NumpadEnter" || e.key === "Enter") { e.preventDefault(); saveCaption(); return; }
     }
     if (typing) {
       if (e.key === "Enter" && (document.activeElement.id === "line1" || document.activeElement.id === "line2")) {
