@@ -4,7 +4,7 @@ compatibility_date = "2026-01-01"
 
 # Public config (non-secret). Override per environment as needed.
 [vars]
-MODEL = "claude-opus-4-8"      # cost note: see worker/translate.js — haiku/sonnet are far cheaper
+MODEL = "claude-haiku-4-5"     # cheap + good for subtitles; bump to claude-sonnet-4-6 for higher quality
 ALLOWED_ORIGIN = "*"            # set to "https://yourdomain.com" before launch
 MAX_CUES = "60"                 # hard per-request cap (abuse guard)
 
