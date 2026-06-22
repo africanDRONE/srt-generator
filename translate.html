@@ -45,11 +45,13 @@
   #dropzone{border:2px dashed var(--border-strong);border-radius:var(--radius);padding:40px 20px;text-align:center;cursor:pointer;transition:.15s}
   #dropzone:hover,#dropzone.drag{border-color:var(--brand1);background:var(--grad-soft)}
   #dropzone .big{font-size:34px;margin-bottom:8px}.hint{color:var(--muted);font-size:13px;margin-top:6px}#dropzone strong{color:var(--brand1)}
+  #dropzone.loaded{border-style:solid;border-color:var(--success);background:rgba(16,185,129,.07);cursor:pointer}
+  #dropzone.loaded strong{color:var(--text)}
   .paste-toggle{display:block;margin:14px auto 0;background:none;border:none;color:var(--brand1);font-family:inherit;font-weight:600;font-size:13px;cursor:pointer}
   .paste-toggle:hover{text-decoration:underline}
   textarea#paste{width:100%;min-height:96px;resize:vertical;background:var(--surface-2);border:1px solid var(--border);color:var(--text);padding:12px 14px;border-radius:12px;outline:none;font-size:13px;font-family:"SF Mono",Menlo,monospace}
   textarea#paste:focus{border-color:var(--brand1);background:#fff}
-  .controls{display:grid;grid-template-columns:1fr 1fr auto;gap:12px;align-items:end;margin-top:16px}
+  .controls{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:end;margin-top:16px}
   .field label{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);font-weight:600;margin-bottom:6px}
   select{width:100%;background:var(--surface-2);border:1px solid var(--border-strong);color:var(--text);padding:12px 13px;border-radius:11px;outline:none;font-size:14px;font-family:inherit}
   select:focus{border-color:var(--brand1);background:#fff}
@@ -64,14 +66,27 @@
   .demo-flag{display:none;margin-top:12px;font-size:12.5px;color:#92400e;background:#fef3c7;border:1px solid #fcd34d;border-radius:10px;padding:9px 14px;text-align:center}.demo-flag.show{display:block}
   .results-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:14px}
   .results-head strong{font-family:var(--font-display);font-size:17px}
-  .dl{display:flex;gap:8px}.dl .btn{background:var(--surface-2);border:1px solid var(--border-strong);color:var(--text);padding:9px 16px;font-size:13px}.dl .btn:hover{border-color:var(--brand1);color:var(--brand1);background:#fff}
-  .col-head{display:grid;grid-template-columns:54px 1fr 1fr;gap:12px;font-size:10px;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);font-weight:600;padding:0 12px 6px}
-  .cue-list{display:flex;flex-direction:column;gap:8px;max-height:460px;overflow-y:auto;padding-right:4px}
-  .cue{background:var(--surface-2);border:1px solid var(--border);border-radius:10px;padding:10px 12px;display:grid;grid-template-columns:54px 1fr 1fr;gap:12px;align-items:start}
-  .cue .idx{color:var(--muted);font-size:11px;font-family:"SF Mono",monospace}.cue .idx .t{display:block;margin-top:3px;opacity:.7;font-size:10px}
-  .cue .src{color:var(--text-soft);font-size:13px;white-space:pre-line}
-  .cue .tgt{background:#fff;border:1px solid var(--border);color:var(--text);font-size:13px;font-family:inherit;resize:vertical;min-height:38px;width:100%;border-radius:8px;padding:7px 9px;outline:none;line-height:1.45}
-  .cue .tgt:focus{border-color:var(--brand1);box-shadow:0 0 0 3px rgba(99,102,241,.12)}
+  .carousel-nav{display:flex;gap:8px}
+  .cnav{width:34px;height:34px;border-radius:9px;border:1px solid var(--border-strong);background:var(--surface-2);color:var(--text);font-size:18px;line-height:1;cursor:pointer;font-family:inherit}
+  .cnav:hover{border-color:var(--brand1);color:var(--brand1);background:#fff}
+  .cnav:disabled{opacity:.35;cursor:default}
+  .cols-viewport{display:flex;gap:14px;overflow-x:auto;scroll-snap-type:x mandatory;scroll-behavior:smooth;padding-bottom:6px}
+  .tcol{flex:0 0 260px;scroll-snap-align:start;background:var(--surface-2);border:1px solid var(--border);border-radius:12px;display:flex;flex-direction:column;overflow:hidden}
+  .tcol.source{background:#fbfbff;border-color:var(--border-strong)}
+  .tcol-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:11px 13px;font-family:var(--font-display);font-weight:700;font-size:14px}
+  .tcol.source .tcol-head{background:#eceef7;color:var(--text-soft)}
+  .tcol:not(.source) .tcol-head{background:var(--grad);color:#fff}
+  .tcol-x{border:none;background:rgba(255,255,255,.28);color:#fff;width:20px;height:20px;border-radius:6px;cursor:pointer;font-size:11px;line-height:1}
+  .tcol-dl{display:flex;align-items:center;gap:6px;padding:8px 13px;border-bottom:1px solid var(--border);background:var(--surface)}
+  .tcol-note{font-size:9.5px;text-transform:uppercase;letter-spacing:.5px;font-weight:700;margin-right:auto}
+  .tcol.source .tcol-note{color:var(--muted)}.tcol:not(.source) .tcol-note{color:var(--brand2)}
+  .tcol-btn{border:1px solid var(--border-strong);background:#fff;color:var(--text);border-radius:8px;padding:6px 10px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap}
+  .tcol-btn:hover{border-color:var(--brand1);color:var(--brand1)}
+  .tcol-body{padding:10px 11px;display:flex;flex-direction:column;gap:8px;max-height:440px;overflow-y:auto}
+  .tcue-meta{font-size:10px;color:var(--muted);font-family:"SF Mono",monospace;margin-bottom:3px}
+  .tcue textarea{width:100%;background:#fff;border:1px solid var(--border);border-radius:8px;padding:7px 9px;font-size:13px;font-family:inherit;color:var(--text);resize:vertical;min-height:34px;outline:none;line-height:1.4}
+  .tcue textarea:focus{border-color:var(--brand1);box-shadow:0 0 0 3px rgba(99,102,241,.12)}
+  .tcol.source .tcue textarea{background:#f6f6fb;color:var(--text-soft)}
   footer.site{margin-top:46px;padding:28px 0;border-top:1px solid var(--border);color:var(--muted);font-size:13.5px;text-align:center}footer.site a{color:var(--text-soft);margin:0 8px}
   .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(8px);background:var(--text);color:#fff;padding:12px 22px;border-radius:12px;font-size:14px;font-weight:500;opacity:0;pointer-events:none;transition:.2s;z-index:200;box-shadow:var(--shadow)}
   .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}.toast.error{background:var(--error)}.toast.success{background:var(--success)}
@@ -102,17 +117,23 @@
 
   <div class="card" id="input-card">
     <div id="dropzone">
-      <div class="big">📂</div>
-      <div>Drag a subtitle file here, or <strong>click to browse</strong></div>
-      <div class="hint">.srt and .vtt, up to <span id="lim">200</span> lines free</div>
+      <div id="dz-default">
+        <div class="big">📂</div>
+        <div>Drag a subtitle file here, or <strong>click to browse</strong></div>
+        <div class="hint">.srt and .vtt, up to <span id="lim">200</span> lines free</div>
+      </div>
+      <div id="dz-loaded" class="hidden">
+        <div class="big">✅</div>
+        <div><strong id="dz-name">file.srt</strong></div>
+        <div class="hint"><span id="dz-count">0</span> lines loaded · click to replace</div>
+      </div>
       <input type="file" id="file-input" accept=".srt,.vtt,text/plain" class="hidden" />
     </div>
     <button type="button" class="paste-toggle" id="paste-toggle">+ Paste subtitle text instead</button>
     <textarea id="paste" class="hidden" placeholder="1&#10;00:00:01,000 --> 00:00:04,000&#10;Your subtitle text…"></textarea>
     <div class="controls">
-      <div class="field"><label for="src-lang">From</label><select id="src-lang"></select></div>
-      <div class="field"><label for="tgt-lang">To</label><select id="tgt-lang"></select></div>
-      <div class="field"><button class="btn btn-grad" id="translate-btn" disabled>Translate →</button></div>
+      <div class="field"><label for="tgt-lang">Translate into</label><select id="tgt-lang"></select></div>
+      <div class="field"><button class="btn btn-grad" id="translate-btn" disabled>+ Add translation</button></div>
     </div>
     <div class="demo-flag" id="demo-flag">Demo mode: translations are simulated locally (no API key configured). Parsing, editing, and export are live.</div>
     <div class="progress-wrap" id="progress-wrap"><div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div><div class="progress-label" id="progress-label">Translating…</div></div>
@@ -121,11 +142,13 @@
 
   <div class="card hidden" id="results-card">
     <div class="results-head">
-      <strong id="results-title">Translation</strong>
-      <div class="dl"><button class="btn" id="dl-srt">⬇ .srt</button><button class="btn" id="dl-vtt">⬇ .vtt</button></div>
+      <strong id="results-title">Your subtitles</strong>
+      <div class="carousel-nav hidden" id="carousel-nav">
+        <button class="cnav" id="cprev" aria-label="Scroll left">‹</button>
+        <button class="cnav" id="cnext" aria-label="Scroll right">›</button>
+      </div>
     </div>
-    <div class="col-head"><span>#</span><span>Original</span><span>Translation (editable)</span></div>
-    <div class="cue-list" id="cue-list"></div>
+    <div class="cols-viewport" id="cols-viewport"></div>
   </div>
 
   <footer class="site">
@@ -139,7 +162,8 @@
 const API_BASE = "https://subtitle-translate.johnnie-miller.workers.dev";
 const FREE_LINE_LIMIT = 200, BATCH_SIZE = 20, DEMO = !API_BASE;
 const LANGUAGES = [["Spanish","es"],["French","fr"],["German","de"],["Italian","it"],["Portuguese","pt"],["Portuguese (Brazil)","pt-BR"],["Dutch","nl"],["Russian","ru"],["Polish","pl"],["Turkish","tr"],["Arabic","ar"],["Hebrew","he"],["Hindi","hi"],["Bengali","bn"],["Urdu","ur"],["Japanese","ja"],["Korean","ko"],["Chinese (Simplified)","zh-CN"],["Chinese (Traditional)","zh-TW"],["Vietnamese","vi"],["Thai","th"],["Indonesian","id"],["Malay","ms"],["Filipino","tl"],["Ukrainian","uk"],["Czech","cs"],["Slovak","sk"],["Romanian","ro"],["Hungarian","hu"],["Greek","el"],["Bulgarian","bg"],["Serbian","sr"],["Croatian","hr"],["Swedish","sv"],["Norwegian","no"],["Danish","da"],["Finnish","fi"],["English","en"],["Persian","fa"],["Swahili","sw"],["Tamil","ta"],["Telugu","te"],["Marathi","mr"],["Catalan","ca"]];
-let cues = [], sourceName = "subtitles", translated = false;
+let cues = [], sourceName = "subtitles", langCols = [];  // langCols: [{code,name,lines:[...]}]
+const SOURCE_KEY = "__source__";
 
 function tcToSeconds(tc){tc=tc.trim().replace(",",".");const p=tc.split(":");let h=0,m=0,s=0;if(p.length===3){h=+p[0];m=+p[1];s=parseFloat(p[2]);}else if(p.length===2){m=+p[0];s=parseFloat(p[1]);}else s=parseFloat(p[0]);return h*3600+m*60+s;}
 function secondsToTc(sec,vtt){if(sec==null||isNaN(sec))sec=0;if(sec<0)sec=0;const h=Math.floor(sec/3600),m=Math.floor((sec%3600)/60),s=Math.floor(sec%60),ms=Math.round((sec-Math.floor(sec))*1000),sep=vtt?".":",",p=(n,l)=>String(n).padStart(l,"0");return `${p(h,2)}:${p(m,2)}:${p(s,2)}${sep}${p(ms,3)}`;}
@@ -152,35 +176,91 @@ async function translateBatch(texts,source,target){
   if(!res.ok)throw new Error("Translation failed ("+res.status+")");
   const d=await res.json();if(!d.translations||d.translations.length!==texts.length)throw new Error("Unexpected response");return d.translations;
 }
-async function runTranslation(){
+async function addTranslation(){
   if(!cues.length){toast("Add a file or paste text first","error");return;}
   if(cues.length>FREE_LINE_LIMIT){toast("Over the free limit, Pro handles full-length files","error");location.href="/pricing.html";return;}
-  const srcSel=document.getElementById("src-lang").value;
-  const tgt=document.getElementById("tgt-lang").value, tgtName=document.getElementById("tgt-lang").selectedOptions[0].textContent;
-  const src=srcSel==="auto"?"auto-detected language":document.getElementById("src-lang").selectedOptions[0].textContent;
-  setBusy(true);document.getElementById("progress-wrap").classList.add("show");
+  const sel=document.getElementById("tgt-lang");
+  const code=sel.value, name=sel.selectedOptions[0].textContent.trim();
+  if(langCols.some(l=>l.code===code)){toast(name+" is already added","error");return;}
+  const btn=document.getElementById("translate-btn"); btn.disabled=true; const old=btn.textContent; btn.textContent="Translating…";
+  document.getElementById("progress-wrap").classList.add("show");
+  const col={code,name,lines:cues.map(()=>"")}; langCols.push(col); render(); scrollToEnd();
   try{
     let done=0;
-    for(let i=0;i<cues.length;i+=BATCH_SIZE){const chunk=cues.slice(i,i+BATCH_SIZE);const t=await translateBatch(chunk.map(c=>c.text),src,tgt);chunk.forEach((c,j)=>c.translation=t[j]);done+=chunk.length;const pct=Math.round(done/cues.length*100);document.getElementById("progress-fill").style.width=pct+"%";document.getElementById("progress-label").textContent=`Translating… ${done}/${cues.length}`;render();}
-    translated=true;document.getElementById("results-title").textContent=`Translation → ${tgtName}`;toast("Done, review & edit below","success");
-  }catch(e){toast(e.message||"Something went wrong","error");}finally{setBusy(false);setTimeout(()=>document.getElementById("progress-wrap").classList.remove("show"),600);}
+    for(let i=0;i<cues.length;i+=BATCH_SIZE){
+      const chunk=cues.slice(i,i+BATCH_SIZE).map(c=>c.text);
+      const t=await translateBatch(chunk,"auto",code);
+      for(let j=0;j<t.length;j++) col.lines[i+j]=t[j];
+      done+=t.length;
+      document.getElementById("progress-fill").style.width=Math.round(done/cues.length*100)+"%";
+      document.getElementById("progress-label").textContent=`Translating ${name}… ${done}/${cues.length}`;
+      render();
+    }
+    toast(name+" added","success"); scrollToEnd();
+  }catch(e){
+    langCols=langCols.filter(l=>l!==col); render();
+    toast(e.message||"Translation failed","error");
+  }finally{
+    btn.disabled=false; btn.textContent=old;
+    setTimeout(()=>document.getElementById("progress-wrap").classList.remove("show"),600);
+  }
 }
 function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
-function render(){const list=document.getElementById("cue-list");document.getElementById("results-card").classList.remove("hidden");list.innerHTML=cues.map((c,i)=>`<div class="cue"><div class="idx">#${c.index}<span class="t">${secondsToTc(c.start).slice(0,8)}</span></div><div class="src">${escapeHtml(c.text)}</div><textarea class="tgt" data-i="${i}" placeholder="(translation)">${escapeHtml(c.translation)}</textarea></div>`).join("");list.querySelectorAll(".tgt").forEach(t=>t.addEventListener("input",e=>cues[+e.target.dataset.i].translation=e.target.value));}
-function buildOutput(vtt){const body=cues.map((c,i)=>{const text=(translated&&c.translation)?c.translation:c.text;return `${i+1}\n${secondsToTc(c.start,vtt)} --> ${secondsToTc(c.end,vtt)}\n${text}\n`;}).join("\n");return vtt?"WEBVTT\n\n"+body:body;}
-function download(vtt){if(!cues.length){toast("Nothing to export","error");return;}const blob=new Blob([buildOutput(vtt)],{type:"text/plain;charset=utf-8"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=`${sourceName}-${translated?document.getElementById("tgt-lang").value:"copy"}.${vtt?"vtt":"srt"}`;document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);}
-function ingest(raw,name){cues=parseSubtitles(raw);if(!cues.length){toast("Couldn't find subtitles in that file","error");return;}sourceName=(name||"subtitles").replace(/\.(srt|vtt|txt)$/i,"");translated=false;document.getElementById("translate-btn").disabled=false;const note=document.getElementById("limit-note");if(cues.length>FREE_LINE_LIMIT){note.innerHTML=`Loaded <strong style="color:var(--brand3)">${cues.length}</strong> lines, over the free limit of ${FREE_LINE_LIMIT}. <a href="/pricing.html">See Pro →</a>`;}else{note.innerHTML=`Loaded <strong style="color:var(--text)">${cues.length}</strong> lines, ready to translate.`;}render();document.getElementById("results-title").textContent="Loaded subtitles (not yet translated)";}
+function colHtml(code,name,isSource,lines){
+  const rm=isSource?"":`<button class="tcol-x" data-rm="${code}" title="Remove">✕</button>`;
+  const head=`<div class="tcol-head"><span>${isSource?"📄 Original":escapeHtml(name)}</span>${rm}</div>`;
+  const dl=`<div class="tcol-dl"><span class="tcol-note">${isSource?"source":"translated"}</span><button class="tcol-btn" data-dl="${code}" data-fmt="srt">↓ .srt</button><button class="tcol-btn" data-dl="${code}" data-fmt="vtt">↓ .vtt</button></div>`;
+  const body=`<div class="tcol-body">${cues.map((c,i)=>`<div class="tcue"><div class="tcue-meta">#${i+1} · ${secondsToTc(c.start).slice(0,8)}</div><textarea data-col="${code}" data-i="${i}" placeholder="${isSource?"":"(translation)"}">${escapeHtml(isSource?c.text:(lines[i]||""))}</textarea></div>`).join("")}</div>`;
+  return `<div class="tcol${isSource?" source":""}">${head}${dl}${body}</div>`;
+}
+function render(){
+  const card=document.getElementById("results-card"); if(cues.length) card.classList.remove("hidden");
+  const vp=document.getElementById("cols-viewport");
+  let html=colHtml(SOURCE_KEY,"Original",true,null);
+  langCols.forEach(l=>html+=colHtml(l.code,l.name,false,l.lines));
+  vp.innerHTML=html;
+  vp.querySelectorAll("textarea[data-col]").forEach(t=>t.addEventListener("input",e=>{
+    const col=e.target.dataset.col,i=+e.target.dataset.i,v=e.target.value;
+    if(col===SOURCE_KEY) cues[i].text=v; else { const c=langCols.find(l=>l.code===col); if(c) c.lines[i]=v; }
+  }));
+  document.getElementById("carousel-nav").classList.toggle("hidden",(1+langCols.length)<=3);
+  updateCnav();
+}
+function scrollToEnd(){const vp=document.getElementById("cols-viewport");vp.scrollLeft=vp.scrollWidth;updateCnav();}
+function updateCnav(){
+  const vp=document.getElementById("cols-viewport"),p=document.getElementById("cprev"),n=document.getElementById("cnext");
+  if(!p||!n)return;
+  p.disabled=vp.scrollLeft<=2;
+  n.disabled=vp.scrollLeft>=vp.scrollWidth-vp.clientWidth-2;
+}
+function buildCol(code,vtt){const lines=code===SOURCE_KEY?cues.map(c=>c.text):((langCols.find(l=>l.code===code)||{}).lines||[]);const body=cues.map((c,i)=>`${i+1}\n${secondsToTc(c.start,vtt)} --> ${secondsToTc(c.end,vtt)}\n${lines[i]||""}\n`).join("\n");return vtt?"WEBVTT\n\n"+body:body;}
+function downloadCol(code,vtt){if(!cues.length){toast("Nothing to export","error");return;}const suffix=code===SOURCE_KEY?"original":code;const blob=new Blob([buildCol(code,vtt)],{type:"text/plain;charset=utf-8"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=`${sourceName}-${suffix}.${vtt?"vtt":"srt"}`;document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);}
+function ingest(raw,name){
+  const parsed=parseSubtitles(raw);
+  if(!parsed.length){toast("Couldn't find subtitles in that file","error");return;}
+  cues=parsed; langCols=[];
+  sourceName=(name||"subtitles").replace(/\.(srt|vtt|txt)$/i,"");
+  // dropzone "loaded" state
+  document.getElementById("dropzone").classList.add("loaded");
+  document.getElementById("dz-default").classList.add("hidden");
+  document.getElementById("dz-loaded").classList.remove("hidden");
+  document.getElementById("dz-name").textContent=name||"pasted text";
+  document.getElementById("dz-count").textContent=cues.length;
+  document.getElementById("translate-btn").disabled=false;
+  const note=document.getElementById("limit-note");
+  if(cues.length>FREE_LINE_LIMIT){note.innerHTML=`Loaded <strong style="color:var(--brand3)">${cues.length}</strong> lines, over the free limit of ${FREE_LINE_LIMIT}. <a href="/pricing.html">See Pro →</a>`;}
+  else{note.innerHTML=`Loaded <strong>${cues.length}</strong> lines. Pick a language and hit Add translation.`;}
+  render();
+}
 function handleFile(f){if(!f)return;if(f.size>2*1024*1024){toast("File too large (2 MB max free)","error");return;}sourceName=f.name;const r=new FileReader();r.onload=e=>ingest(e.target.result,f.name);r.readAsText(f);}
-function setBusy(b){const btn=document.getElementById("translate-btn");btn.disabled=b;btn.textContent=b?"Translating…":"Translate →";}
+// (translate button state is handled inline in addTranslation)
 let toastTimer=null;function toast(msg,type){const el=document.getElementById("toast");el.textContent=msg;el.className="toast show"+(type?" "+type:"");clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.classList.remove("show"),2200);}
 (function init(){
-  const src=document.getElementById("src-lang"),tgt=document.getElementById("tgt-lang");
-  src.innerHTML=`<option value="auto">Auto-detect</option>`+LANGUAGES.map(([n,c])=>`<option value="${c}">${n}</option>`).join("");
+  const tgt=document.getElementById("tgt-lang");
   tgt.innerHTML=LANGUAGES.map(([n,c])=>`<option value="${c}">${n}</option>`).join("");tgt.value="es";
   document.getElementById("lim").textContent=FREE_LINE_LIMIT;
   if(DEMO)document.getElementById("demo-flag").classList.add("show");
   const codes=LANGUAGES.map(l=>l[1]),qp=new URLSearchParams(location.search);
-  if(qp.get("from")&&(qp.get("from")==="auto"||codes.includes(qp.get("from"))))src.value=qp.get("from");
   if(qp.get("to")&&codes.includes(qp.get("to")))tgt.value=qp.get("to");
   const dz=document.getElementById("dropzone"),fi=document.getElementById("file-input");
   dz.addEventListener("click",()=>fi.click());
@@ -189,10 +269,16 @@ let toastTimer=null;function toast(msg,type){const el=document.getElementById("t
   dz.addEventListener("dragleave",()=>dz.classList.remove("drag"));
   dz.addEventListener("drop",e=>{e.preventDefault();dz.classList.remove("drag");if(e.dataTransfer.files[0])handleFile(e.dataTransfer.files[0]);});
   document.getElementById("paste-toggle").addEventListener("click",()=>{const ta=document.getElementById("paste");const open=ta.classList.toggle("hidden")===false;document.getElementById("paste-toggle").textContent=(open?"– ":"+ ")+"Paste subtitle text instead";if(open)ta.focus();});
-  let pt=null;document.getElementById("paste").addEventListener("input",e=>{clearTimeout(pt);pt=setTimeout(()=>{const v=e.target.value.trim();if(v.length>20)ingest(v,"pasted");},500);});
-  document.getElementById("translate-btn").addEventListener("click",runTranslation);
-  document.getElementById("dl-srt").addEventListener("click",()=>download(false));
-  document.getElementById("dl-vtt").addEventListener("click",()=>download(true));
+  let pt=null;document.getElementById("paste").addEventListener("input",e=>{clearTimeout(pt);pt=setTimeout(()=>{const v=e.target.value.trim();if(v.length>20)ingest(v,"pasted text");},500);});
+  document.getElementById("translate-btn").addEventListener("click",addTranslation);
+  const vp=document.getElementById("cols-viewport");
+  vp.addEventListener("scroll",updateCnav);
+  document.getElementById("cprev").addEventListener("click",()=>vp.scrollBy({left:-274,behavior:"smooth"}));
+  document.getElementById("cnext").addEventListener("click",()=>vp.scrollBy({left:274,behavior:"smooth"}));
+  document.addEventListener("click",e=>{
+    const dl=e.target.closest("[data-dl]"); if(dl){downloadCol(dl.dataset.dl,dl.dataset.fmt==="vtt");return;}
+    const rm=e.target.closest("[data-rm]"); if(rm){langCols=langCols.filter(l=>l.code!==rm.dataset.rm);render();return;}
+  });
 })();
 </script>
 <script type="module" src="/lib/auth.js"></script>
