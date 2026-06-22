@@ -73,7 +73,8 @@
   #editor{display:none;padding:24px 0 10px}#editor.show{display:block}
   body.editing-tab #hero,body.editing-tab #why,body.editing-tab #how,body.editing-tab #features,body.editing-tab .cta-band{display:none}
   body.editing-tab #editor{padding-top:18px}
-  .editor-grid{display:grid;grid-template-columns:minmax(0,560px) minmax(0,1fr);gap:20px;align-items:start}
+  body.editing-tab #top{max-width:1360px}
+  .editor-grid{display:grid;grid-template-columns:minmax(0,500px) minmax(0,1fr);gap:20px;align-items:start}
   .left-col{display:flex;flex-direction:column;gap:16px;min-width:0}
   .right-col{display:flex;flex-direction:column;gap:12px;min-width:0}
   .panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow-sm)}
@@ -82,10 +83,10 @@
   #player-host iframe,#player-host video,#player-host>div{width:100%;height:100%;border:0;display:block;background:#000}
   .subtitle-overlay{position:absolute;bottom:10%;left:6%;right:6%;text-align:center;color:#fff;font-size:clamp(16px,2.7vw,30px);font-weight:700;line-height:1.3;white-space:pre-line;pointer-events:none;z-index:2;text-shadow:-2px -2px 0 #000,2px -2px 0 #000,-2px 2px 0 #000,2px 2px 0 #000,0 0 12px rgba(0,0,0,.9)}
   .transport{display:flex;gap:10px}
-  .transport .btn{flex:1;padding:16px;font-size:15px;display:flex;flex-direction:column;align-items:center;gap:2px}
-  .scrub{background:var(--surface);border:1px solid var(--border-strong);color:var(--text);min-width:92px;flex:0 0 auto}.scrub:hover{background:var(--surface-2)}
-  .scrub .lbl{font-size:11px;color:var(--muted);font-weight:500}.scrub .arrow{font-size:18px}
-  .play-big{background:var(--text);color:#fff;font-size:17px}.play-big:hover{background:#2c2e4d}
+  .transport .btn{padding:10px 14px;font-size:14px;display:flex;flex-direction:row;align-items:center;justify-content:center;gap:5px;border-radius:10px}
+  .scrub{background:var(--surface);border:1px solid var(--border-strong);color:var(--text);flex:0 0 84px}.scrub:hover{background:var(--surface-2)}
+  .scrub .lbl{font-size:13px;color:var(--text-soft);font-weight:600}.scrub .arrow{font-size:14px}
+  .play-big{flex:1;background:var(--text);color:#fff;font-size:14.5px;font-weight:600}.play-big:hover{background:#2c2e4d}
 
   .control-card{padding:18px;display:flex;flex-direction:column;gap:14px}
   .marks{display:grid;grid-template-columns:1fr 1fr;gap:12px}
@@ -103,7 +104,7 @@
   .translate-bar .tb-title{font-size:12.5px;font-weight:700;color:var(--brand2);display:flex;align-items:center;gap:6px}
   .translate-bar .tb-row{display:flex;gap:8px}
   .translate-bar select{flex:1;padding:9px 11px;border-radius:9px;border:1px solid var(--border-strong);background:#fff;font-family:inherit;font-size:13.5px;color:var(--text);outline:none}
-  .translate-bar .btn{background:var(--brand2);color:#fff;padding:9px 14px;font-size:13px;white-space:nowrap}.translate-bar .btn:hover{background:#9333ea}.translate-bar .btn:disabled{opacity:.55;cursor:not-allowed}
+  .translate-bar .btn{background:#fff;border:1px solid var(--border-strong);color:var(--text-soft);padding:9px 14px;font-size:13px;white-space:nowrap}.translate-bar .btn:hover{border-color:var(--brand2);color:var(--brand2)}.translate-bar .btn:disabled{opacity:.55;cursor:not-allowed}
   .kbd-hint{font-size:11.5px;color:var(--muted);text-align:center}
   .kbd-hint kbd{background:var(--surface-2);border:1px solid var(--border-strong);border-bottom-width:2px;border-radius:5px;padding:1px 6px;font-family:"SF Mono",monospace;font-size:11px;color:var(--text-soft)}
   .auto-btn{background:#fff;border:1px solid var(--brand2);color:var(--brand2);padding:12px;font-size:14px;display:flex;align-items:center;justify-content:center;gap:8px}
@@ -218,12 +219,12 @@
             <div class="mark">
               <label>In point</label>
               <div class="time" id="startDisplay">--:--:--</div>
-              <button class="btn" onclick="markStart()">Mark In (S)</button>
+              <button class="btn" onclick="markStart()">⌥S · Mark In</button>
             </div>
             <div class="mark">
               <label>Out point</label>
               <div class="time" id="endDisplay">--:--:--</div>
-              <button class="btn" onclick="markEnd()">Mark Out (E)</button>
+              <button class="btn" onclick="markEnd()">⌥E · Mark Out</button>
             </div>
           </div>
           <div class="lines">
@@ -248,7 +249,7 @@
         </div>
         <div class="columns-head">
           <h3>Captions <span class="hint" id="col-count">(0)</span></h3>
-          <span class="hint">Each box exports its own .srt / .vtt.</span>
+          <span class="hint">↓ Download each column as .srt or .vtt.</span>
         </div>
         <div class="columns" id="columns"></div>
         <button class="btn auto-btn" id="burn-btn" style="margin-top:16px">🎬 Export burned-in video <span class="pro-tag">Pro</span></button>
@@ -590,11 +591,11 @@ function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;',
 function colHtml(key, title, flag, isSource, rows, loading){
   const head = `<div class="col-head">
       <div class="col-title">${flag ? `<span class="flag">${flag}</span>` : ""}${escapeHtml(title)}${isSource ? "" : `<button class="col-x" data-rm="${key}" title="Remove">✕</button>`}</div>
-      <div class="col-dl"><button data-dl="${key}" data-fmt="srt">.srt</button><button data-dl="${key}" data-fmt="vtt">.vtt</button></div>
+      <div class="col-dl"><button data-dl="${key}" data-fmt="srt">↓ .srt</button><button data-dl="${key}" data-fmt="vtt">↓ .vtt</button></div>
     </div>`;
   let body;
   if (loading) body = `<div class="col-loading">Translating…</div>`;
-  else if (!captions.length) body = `<div class="col-empty"><div class="big">🎬</div>${isSource ? "No captions yet. Play the video, mark in/out, and type." : ""}</div>`;
+  else if (!captions.length) body = `<div class="col-empty"><div class="big">🎬</div>${isSource ? "No captions yet." : ""}</div>`;
   else body = `<div class="col-body">${rows.map((r,i) => `
       <div class="cue-cell" data-i="${i}">
         <div class="cue-time" data-seek="${i}"><span>${formatTime(captions[i].start, true).slice(0,8)}</span><span>#${i+1}</span></div>
