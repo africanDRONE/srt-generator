@@ -71,6 +71,8 @@
   .cnav:hover{border-color:var(--brand1);color:var(--brand1);background:#fff}
   .cnav:disabled{opacity:.35;cursor:default}
   .cols-viewport{display:flex;gap:14px;overflow-x:auto;scroll-snap-type:x mandatory;scroll-behavior:smooth;padding-bottom:6px}
+  .cols-viewport.fit{overflow-x:visible;scroll-snap-type:none}
+  .cols-viewport.fit .tcol{flex:1 1 0;min-width:0}
   .tcol{flex:0 0 260px;scroll-snap-align:start;background:var(--surface-2);border:1px solid var(--border);border-radius:12px;display:flex;flex-direction:column;overflow:hidden}
   .tcol.source{background:#fbfbff;border-color:var(--border-strong)}
   .tcol-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:11px 13px;font-family:var(--font-display);font-weight:700;font-size:14px}
@@ -223,7 +225,9 @@ function render(){
     const col=e.target.dataset.col,i=+e.target.dataset.i,v=e.target.value;
     if(col===SOURCE_KEY) cues[i].text=v; else { const c=langCols.find(l=>l.code===col); if(c) c.lines[i]=v; }
   }));
-  document.getElementById("carousel-nav").classList.toggle("hidden",(1+langCols.length)<=3);
+  const total=1+langCols.length;
+  document.getElementById("carousel-nav").classList.toggle("hidden",total<=3);
+  vp.classList.toggle("fit",total<=3);
   updateCnav();
 }
 function scrollToEnd(){const vp=document.getElementById("cols-viewport");vp.scrollLeft=vp.scrollWidth;updateCnav();}
