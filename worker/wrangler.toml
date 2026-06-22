@@ -1,5 +1,5 @@
 name = "subtitle-translate"
-main = "worker/translate.js"
+main = "translate.js"
 compatibility_date = "2026-01-01"
 
 # Public config (non-secret). Override per environment as needed.

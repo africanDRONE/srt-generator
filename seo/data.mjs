@@ -4,7 +4,7 @@
 export const SITE = {
   name: "SubCaptions",
   // Set this to your real domain before deploying; used in canonicals + sitemap.
-  origin: "https://example.com",
+  origin: "https://subcaptions.com",
   tagline: "Subtitle any YouTube video in your browser, then translate it.",
 };
 
