@@ -731,7 +731,6 @@ async function ensurePaid(){
   return false;
 }
 async function autoTranscribe(){
-  if (!(await ensurePaid())) { toast('Auto-captions need Solo — your plan reads "' + ((window.SubAuth && SubAuth.tier) || "free") + '". Reload this tab if you just upgraded.', "error"); return; }
   if (!currentSourceUrl) { toast("Load a video first", "error"); return; }
   if (captions.length && !(await confirmModal("Replace your current captions with auto-generated ones?", "Replace"))) return;
   const btn = document.getElementById("auto-btn");
@@ -752,7 +751,8 @@ async function autoTranscribe(){
         method: "POST", headers: authHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify({ url: currentSourceUrl })
       });
-      if (res.status === 402) throw new Error("Auto-captions are a Solo feature.");
+      if (res.status === 402) throw new Error("Auto-captions need a Solo plan. Upgrade in Pricing.");
+      if (res.status === 401) throw new Error("Please sign in to use auto-captions.");
       if (!res.ok) throw new Error("Transcription failed (" + res.status + ")");
       cues = (await res.json()).cues || [];
     }
@@ -775,7 +775,6 @@ async function autoTranscribe(){
 // so it runs on the transcribe-server (which can fetch any source via yt-dlp and
 // downscale to cap cost). Pro-only.
 async function burnVideo(){
-  if (!(await ensurePaid())) { toast('Burned-in video needs Solo — your plan reads "' + ((window.SubAuth && SubAuth.tier) || "free") + '". Reload this tab if you just upgraded.', "error"); return; }
   if (!captions.length) { toast("Make some captions first", "error"); return; }
   const srt = buildSubs(false, captions.map(c => [c.line1, c.line2].filter(Boolean).join("\n")));
   const btn = document.getElementById("burn-btn");
@@ -791,7 +790,8 @@ async function burnVideo(){
       method: "POST", headers: authHeaders({ "Content-Type": "application/json" }),
       body: JSON.stringify({ url: currentSourceUrl, srt })
     });
-    if (res.status === 402) throw new Error("Burned-in video is a Solo feature.");
+    if (res.status === 402) throw new Error("Burned-in video needs a Solo plan. Upgrade in Pricing.");
+    if (res.status === 401) throw new Error("Please sign in to use burned-in export.");
     if (!res.ok) throw new Error("Render failed (" + res.status + ")");
     const blob = await res.blob();
     const url = URL.createObjectURL(blob);
