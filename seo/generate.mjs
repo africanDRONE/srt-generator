@@ -45,12 +45,15 @@ function page({ title, metaDesc, canonical, h1, bodyHtml, jsonLd }) {
 <meta property="og:description" content="${esc(metaDesc)}" />
 <meta property="og:type" content="website" />
 <link rel="stylesheet" href="/styles/pages.css" />
+<link rel="icon" type="image/svg+xml" href="/assets/logo.svg" />
+<link rel="icon" type="image/png" sizes="32x32" href="/assets/logo-32.png" />
+<link rel="apple-touch-icon" href="/assets/logo-180.png" />
 ${jsonLd ? `<script type="application/ld+json">${JSON.stringify(jsonLd)}</script>` : ""}
 </head>
 <body>
 <div class="wrap">
   <header class="site">
-    <a class="brand" href="/"><span class="logo">🎬</span> ${esc(SITE.name)}</a>
+    <a class="brand" href="/"><img class="logo" src="/assets/logo.svg" width="30" height="30" alt="" /> ${esc(SITE.name)}</a>
     <nav><a href="/">Captioner</a><a href="/translate.html">Translate a file</a><a href="/languages/">Languages</a><a href="/pricing.html">Pricing</a></nav>
   </header>
   <main>${bodyHtml}</main>

@@ -1,0 +1,26 @@
+# Files/dirs that must NOT be served by the public website.
+# Wrangler serves everything in this directory by default; this excludes source,
+# server code, build tooling, and internal docs. (gitignore-style syntax)
+
+# Version control + tooling caches
+.git/
+.wrangler/
+.claude/
+node_modules/
+
+# Server-side code (deployed separately, never served as static assets)
+billing/
+transcribe-server/
+worker/
+supabase/
+
+# Build tooling + internal docs (not part of the live site)
+seo/
+docs/
+launch/
+
+# Config + meta
+wrangler.toml
+.gitignore
+.assetsignore
+README.md

@@ -6,6 +6,9 @@
 <title>SubCaptions: Subtitle any video, without leaving your browser</title>
 <meta name="description" content="Subtitle any video by hand, for when auto-captions miss the mark or your language isn't supported by YouTube or Adobe. Paste a link, caption on top of the video, export .srt or .vtt, hand it to a translator, or translate into 50+ languages side by side. Free, no signup." />
 <link rel="canonical" href="https://subcaptions.com/" />
+<link rel="icon" type="image/svg+xml" href="/assets/logo.svg" />
+<link rel="icon" type="image/png" sizes="32x32" href="/assets/logo-32.png" />
+<link rel="apple-touch-icon" href="/assets/logo-180.png" />
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -164,7 +167,7 @@
 <body>
 <header class="nav">
   <div class="wrap nav-inner">
-    <a class="brand" href="/"><span class="mark">🎬</span> SubCaptions</a>
+    <a class="brand" href="/"><img class="mark" src="/assets/logo.svg" width="32" height="32" alt="" /> SubCaptions</a>
     <nav class="nav-links">
       <a href="#why">Why</a>
       <a href="#how">How it works</a>
@@ -194,11 +197,8 @@
     <div class="demo-flag" id="demo-flag">Demo mode: translation is simulated locally (no API key configured). Captioning, timing, and export are fully live.</div>
 
     <div class="hero-visual" id="hero-visual">
-      <div class="float-card fc1"><span class="ic">⌨️</span> Press <b style="margin:0 2px">S</b> to mark in</div>
-      <div class="float-card fc2"><span class="ic">🌍</span> Translations appear side by side</div>
       <div class="mock-video">
         <iframe src="https://www.youtube.com/embed/oNhE89V2S6o?rel=0&modestbranding=1" title="Sample video" allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen style="width:100%;height:100%;border:0;display:block"></iframe>
-        <div class="mock-cap" style="pointer-events:none">Type your caption and it appears here</div>
       </div>
     </div>
   </section>

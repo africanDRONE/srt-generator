@@ -40,9 +40,17 @@ const PRICE_TO_TIER = {
 };
 
 const app = express();
-const ORIGIN = process.env.ALLOWED_ORIGIN || "*";
+// ALLOWED_ORIGIN can be "*" or a comma-separated list, e.g.
+//   https://subcaptions.com,https://subcaptions.pages.dev
+const ORIGINS = (process.env.ALLOWED_ORIGIN || "*").split(",").map((s) => s.trim()).filter(Boolean);
 app.use((req, res, next) => {
-  res.set("Access-Control-Allow-Origin", ORIGIN);
+  const origin = req.get("origin");
+  if (ORIGINS.includes("*")) {
+    res.set("Access-Control-Allow-Origin", "*");
+  } else if (origin && ORIGINS.includes(origin)) {
+    res.set("Access-Control-Allow-Origin", origin);
+    res.set("Vary", "Origin");
+  }
   res.set("Access-Control-Allow-Methods", "POST, GET, OPTIONS");
   res.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
   if (req.method === "OPTIONS") return res.sendStatus(204);
