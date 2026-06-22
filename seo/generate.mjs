@@ -345,7 +345,7 @@ function legalPage(slug, h1, inner) {
     <nav class="crumbs"><a href="/">Home</a> › <span>${esc(h1)}</span></nav>
     <h1>${esc(h1)}</h1>
     ${inner}
-    <p class="lede" style="font-size:13px;margin-top:34px;color:var(--muted);">Questions about this? Email <a href="mailto:johnnie.miller@gmail.com">johnnie.miller@gmail.com</a>.</p>`;
+    <p class="lede" style="font-size:13px;margin-top:34px;color:var(--muted);">Questions about this? Email <a href="mailto:support@subcaptions.com">support@subcaptions.com</a>.</p>`;
   return page({ title: `${h1} | ${SITE.name}`, metaDesc: `${h1} for ${SITE.name}, the browser-based subtitle and caption editor.`, canonical: `${SITE.origin}/${slug}`, h1, bodyHtml });
 }
 
@@ -413,7 +413,7 @@ function termsPage() {
     <p class="lede" style="font-size:15px;">We may suspend or end access for violations of these terms. You can stop using the service at any time.</p>
 
     <h2>Governing law</h2>
-    <p class="lede" style="font-size:15px;">These terms are governed by the laws of [your jurisdiction]. (Set this before launch.)</p>`);
+    <p class="lede" style="font-size:15px;">These terms are governed by the laws of the State of Michigan, United States, without regard to its conflict-of-laws rules.</p>`);
 }
 
 write("styles/pages.css", CSS);
