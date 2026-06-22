@@ -49,6 +49,10 @@ details.faq p{padding:0 18px 16px;color:var(--text-soft)}
 .price-card li:before{content:"✓";position:absolute;left:0;color:var(--success);font-weight:700}
 .price-card .cta{width:100%;text-align:center}
 .price-fine{color:var(--muted);font-size:12.5px;margin-top:12px;text-align:center}
+.bill-toggle{display:flex;justify-content:center;gap:4px;margin:6px auto 0;background:var(--surface-2);border:1px solid var(--border);border-radius:999px;padding:4px;width:max-content}
+.bill-opt{border:none;background:none;font-family:inherit;font-size:14px;font-weight:600;color:var(--text-soft);padding:8px 18px;border-radius:999px;cursor:pointer}
+.bill-opt.active{background:var(--surface);color:var(--text);box-shadow:var(--shadow-sm)}
+.bill-save{font-size:11px;color:var(--success);font-weight:700;margin-left:4px}
 footer.site{margin-top:50px;padding-top:20px;border-top:1px solid var(--border);color:var(--muted);font-size:13px;text-align:center}
 footer.site a{color:var(--text-soft);margin:0 7px}.fine{margin-top:10px}
 @media(max-width:720px){.price-grid{grid-template-columns:1fr;width:100%;left:auto;transform:none}}

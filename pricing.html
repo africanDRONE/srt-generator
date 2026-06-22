@@ -30,6 +30,10 @@
     <nav class="crumbs"><a href="/">Home</a> › <span>Pricing</span></nav>
     <h1>Pricing that undercuts everyone</h1>
     <p class="lede">Caption by hand for free. Solo adds AI auto-captions, unlimited translations, and burned-in export for a fraction of the usual price. Team lets you hand a project to a translator who works right on the video.</p>
+    <div class="bill-toggle">
+      <button type="button" class="bill-opt active" data-bill="monthly">Monthly</button>
+      <button type="button" class="bill-opt" data-bill="yearly">Yearly <span class="bill-save">save 20%</span></button>
+    </div>
     <div class="price-grid">
       <div class="price-card">
         <h2>Free</h2>
@@ -48,7 +52,7 @@
       <div class="price-card featured">
         <div class="badge">Most popular</div>
         <h2>Solo</h2>
-        <div class="price">$5<span>/mo</span></div>
+        <div class="price" data-mo="5" data-yr="48">$5<span>/mo</span></div>
         <ul>
           <li>AI auto-captions (any language)</li>
           <li>Full-length videos, no cap</li>
@@ -57,12 +61,12 @@
           <li>Batch multiple files</li>
           <li>Everything in Free</li>
         </ul>
-        <a class="cta" href="#" data-plan="solo_monthly">Go Solo →</a>
-        <p class="price-fine">Or $48/year.</p>
+        <a class="cta" href="#" data-plan="solo_monthly" data-plan-monthly="solo_monthly" data-plan-yearly="solo_yearly">Go Solo →</a>
+        <p class="price-fine" data-mo-fine="Or $48/year." data-yr-fine="$48/year · save $12">Or $48/year.</p>
       </div>
       <div class="price-card">
         <h2>Team</h2>
-        <div class="price">$18<span>/mo</span></div>
+        <div class="price" data-mo="18" data-yr="180">$18<span>/mo</span></div>
         <ul>
           <li>Hand off to a translator with a share link</li>
           <li>Cloud-saved projects across devices</li>
@@ -70,10 +74,30 @@
           <li>Priority processing</li>
           <li>Everything in Solo</li>
         </ul>
-        <a class="cta" href="#" data-plan="team_monthly">Go Team →</a>
-        <p class="price-fine">Or $180/year (2 months free).</p>
+        <a class="cta" href="#" data-plan="team_monthly" data-plan-monthly="team_monthly" data-plan-yearly="team_yearly">Go Team →</a>
+        <p class="price-fine" data-mo-fine="Or $180/year (2 months free)." data-yr-fine="$180/year · 2 months free">Or $180/year (2 months free).</p>
       </div>
     </div>
+    <script>
+    (function () {
+      function apply(bill) {
+        var yearly = bill === "yearly";
+        document.querySelectorAll(".bill-opt").forEach(function (o) { o.classList.toggle("active", o.dataset.bill === bill); });
+        document.querySelectorAll(".price[data-mo]").forEach(function (p) {
+          p.innerHTML = "$" + (yearly ? p.dataset.yr : p.dataset.mo) + "<span>" + (yearly ? "/yr" : "/mo") + "</span>";
+        });
+        document.querySelectorAll(".cta[data-plan-monthly]").forEach(function (c) {
+          c.setAttribute("data-plan", yearly ? c.dataset.planYearly : c.dataset.planMonthly);
+        });
+        document.querySelectorAll(".price-fine[data-mo-fine]").forEach(function (f) {
+          f.textContent = yearly ? f.dataset.yrFine : f.dataset.moFine;
+        });
+      }
+      document.querySelectorAll(".bill-opt").forEach(function (o) {
+        o.addEventListener("click", function () { apply(o.dataset.bill); });
+      });
+    })();
+    </script>
 
     <h2 style="text-align:center;margin-top:44px;">What makes SubCaptions different</h2>
     <div class="lang-grid">

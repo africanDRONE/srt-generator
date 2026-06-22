@@ -190,6 +190,10 @@ function pricingPage() {
     <nav class="crumbs"><a href="/">Home</a> › <span>Pricing</span></nav>
     <h1>Pricing that undercuts everyone</h1>
     <p class="lede">Caption by hand for free. Solo adds AI auto-captions, unlimited translations, and burned-in export for a fraction of the usual price. Team lets you hand a project to a translator who works right on the video.</p>
+    <div class="bill-toggle">
+      <button type="button" class="bill-opt active" data-bill="monthly">Monthly</button>
+      <button type="button" class="bill-opt" data-bill="yearly">Yearly <span class="bill-save">save 20%</span></button>
+    </div>
     <div class="price-grid">
       <div class="price-card">
         <h2>Free</h2>
@@ -208,7 +212,7 @@ function pricingPage() {
       <div class="price-card featured">
         <div class="badge">Most popular</div>
         <h2>Solo</h2>
-        <div class="price">$5<span>/mo</span></div>
+        <div class="price" data-mo="5" data-yr="48">$5<span>/mo</span></div>
         <ul>
           <li>AI auto-captions (any language)</li>
           <li>Full-length videos, no cap</li>
@@ -217,12 +221,12 @@ function pricingPage() {
           <li>Batch multiple files</li>
           <li>Everything in Free</li>
         </ul>
-        <a class="cta" href="#" data-plan="solo_monthly">Go Solo →</a>
-        <p class="price-fine">Or $48/year.</p>
+        <a class="cta" href="#" data-plan="solo_monthly" data-plan-monthly="solo_monthly" data-plan-yearly="solo_yearly">Go Solo →</a>
+        <p class="price-fine" data-mo-fine="Or $48/year." data-yr-fine="$48/year · save $12">Or $48/year.</p>
       </div>
       <div class="price-card">
         <h2>Team</h2>
-        <div class="price">$18<span>/mo</span></div>
+        <div class="price" data-mo="18" data-yr="180">$18<span>/mo</span></div>
         <ul>
           <li>Hand off to a translator with a share link</li>
           <li>Cloud-saved projects across devices</li>
@@ -230,10 +234,30 @@ function pricingPage() {
           <li>Priority processing</li>
           <li>Everything in Solo</li>
         </ul>
-        <a class="cta" href="#" data-plan="team_monthly">Go Team →</a>
-        <p class="price-fine">Or $180/year (2 months free).</p>
+        <a class="cta" href="#" data-plan="team_monthly" data-plan-monthly="team_monthly" data-plan-yearly="team_yearly">Go Team →</a>
+        <p class="price-fine" data-mo-fine="Or $180/year (2 months free)." data-yr-fine="$180/year · 2 months free">Or $180/year (2 months free).</p>
       </div>
     </div>
+    <script>
+    (function () {
+      function apply(bill) {
+        var yearly = bill === "yearly";
+        document.querySelectorAll(".bill-opt").forEach(function (o) { o.classList.toggle("active", o.dataset.bill === bill); });
+        document.querySelectorAll(".price[data-mo]").forEach(function (p) {
+          p.innerHTML = "$" + (yearly ? p.dataset.yr : p.dataset.mo) + "<span>" + (yearly ? "/yr" : "/mo") + "</span>";
+        });
+        document.querySelectorAll(".cta[data-plan-monthly]").forEach(function (c) {
+          c.setAttribute("data-plan", yearly ? c.dataset.planYearly : c.dataset.planMonthly);
+        });
+        document.querySelectorAll(".price-fine[data-mo-fine]").forEach(function (f) {
+          f.textContent = yearly ? f.dataset.yrFine : f.dataset.moFine;
+        });
+      }
+      document.querySelectorAll(".bill-opt").forEach(function (o) {
+        o.addEventListener("click", function () { apply(o.dataset.bill); });
+      });
+    })();
+    </script>
 
     <h2 style="text-align:center;margin-top:44px;">What makes SubCaptions different</h2>
     <div class="lang-grid">
@@ -303,6 +327,10 @@ details.faq p{padding:0 18px 16px;color:var(--text-soft)}
 .price-card li:before{content:"✓";position:absolute;left:0;color:var(--success);font-weight:700}
 .price-card .cta{width:100%;text-align:center}
 .price-fine{color:var(--muted);font-size:12.5px;margin-top:12px;text-align:center}
+.bill-toggle{display:flex;justify-content:center;gap:4px;margin:6px auto 0;background:var(--surface-2);border:1px solid var(--border);border-radius:999px;padding:4px;width:max-content}
+.bill-opt{border:none;background:none;font-family:inherit;font-size:14px;font-weight:600;color:var(--text-soft);padding:8px 18px;border-radius:999px;cursor:pointer}
+.bill-opt.active{background:var(--surface);color:var(--text);box-shadow:var(--shadow-sm)}
+.bill-save{font-size:11px;color:var(--success);font-weight:700;margin-left:4px}
 footer.site{margin-top:50px;padding-top:20px;border-top:1px solid var(--border);color:var(--muted);font-size:13px;text-align:center}
 footer.site a{color:var(--text-soft);margin:0 7px}.fine{margin-top:10px}
 @media(max-width:720px){.price-grid{grid-template-columns:1fr;width:100%;left:auto;transform:none}}
