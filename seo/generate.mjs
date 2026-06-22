@@ -63,7 +63,7 @@ ${jsonLd ? `<script type="application/ld+json">${JSON.stringify(jsonLd)}</script
 <div class="wrap">
   <main>${bodyHtml}</main>
   <footer class="site">
-    <div><a href="/">Caption a video</a> · <a href="/translate.html">Translate</a> · <a href="/languages/">All languages</a> · <a href="/pricing.html">Pricing</a></div>
+    <div><a href="/">Caption a video</a> · <a href="/translate.html">Translate</a> · <a href="/languages/">All languages</a> · <a href="/pricing.html">Pricing</a> · <a href="/privacy.html">Privacy</a> · <a href="/terms.html">Terms</a></div>
     <div class="fine">${esc(SITE.name)}, ${esc(SITE.tagline)} Files are parsed in your browser and never stored.</div>
   </footer>
 </div>
@@ -340,9 +340,87 @@ footer.site a{color:var(--text-soft);margin:0 7px}.fine{margin-top:10px}
 console.log("Generating SEO pages…");
 const urls = [`${SITE.origin}/`, `${SITE.origin}/translate.html`, `${SITE.origin}/languages/`, `${SITE.origin}/pricing.html`];
 
+function legalPage(slug, h1, inner) {
+  const bodyHtml = `
+    <nav class="crumbs"><a href="/">Home</a> › <span>${esc(h1)}</span></nav>
+    <h1>${esc(h1)}</h1>
+    ${inner}
+    <p class="lede" style="font-size:13px;margin-top:34px;color:var(--muted);">Questions about this? Email <a href="mailto:johnnie.miller@gmail.com">johnnie.miller@gmail.com</a>.</p>`;
+  return page({ title: `${h1} | ${SITE.name}`, metaDesc: `${h1} for ${SITE.name}, the browser-based subtitle and caption editor.`, canonical: `${SITE.origin}/${slug}`, h1, bodyHtml });
+}
+
+function privacyPage() {
+  return legalPage("privacy.html", "Privacy Policy", `
+    <p class="lede">Last updated: June 22, 2026. This explains what SubCaptions collects, how it is used, and the choices you have. SubCaptions is a browser-based subtitle and caption editor, built to keep your video content on your own device.</p>
+
+    <h2>The short version</h2>
+    <p class="lede" style="font-size:15px;">Your video files are never uploaded to us. Captions you create are saved locally in your browser. We collect only what we need to run accounts and billing (your email and plan), and we use a few trusted services, listed below, to handle sign-in, payments, and AI features. We do not sell your data or run advertising trackers.</p>
+
+    <h2>What we collect</h2>
+    <p class="lede" style="font-size:15px;"><strong>Account.</strong> If you sign in, we store your email address and (from Google sign-in) your display name, plus your plan tier. <strong>Billing.</strong> Payments are handled by Stripe; we receive your subscription status and a customer ID, never your full card number. <strong>Basic technical data.</strong> Like most sites, our host may log standard request information (such as IP and browser type) for security and reliability.</p>
+
+    <h2>What we do not collect</h2>
+    <p class="lede" style="font-size:15px;">We do not store your video files. The captions you write are kept in your browser's local storage on your device, not on our servers (Team cloud projects, when offered, are an explicit opt-in). We do not sell personal data and we do not use third-party advertising cookies.</p>
+
+    <h2>How your caption content is handled</h2>
+    <p class="lede" style="font-size:15px;">Subtitle files you open are parsed entirely in your browser. When you use translation, only the caption text is sent to the translation provider to translate it, and it is not stored or used to train models. If you use AI auto-captions, the audio is sent to a transcription provider to generate text and is not retained after processing.</p>
+
+    <h2>Services we rely on</h2>
+    <p class="lede" style="font-size:15px;">We use these providers only to deliver the service: <strong>Cloudflare</strong> (hosting), <strong>Supabase</strong> (accounts and sign-in), <strong>Stripe</strong> (payments), <strong>Google</strong> (optional sign-in), <strong>Anthropic</strong> (translation), and <strong>OpenAI</strong> (optional AI auto-captions). Each processes data only as needed for its function and under its own privacy terms.</p>
+
+    <h2>Cookies and local storage</h2>
+    <p class="lede" style="font-size:15px;">We use your browser's local storage to keep you signed in and to save your captions on your device. We do not use advertising or cross-site tracking cookies.</p>
+
+    <h2>Retention and your choices</h2>
+    <p class="lede" style="font-size:15px;">We keep account and billing data while your account is active. You can clear your captions any time from within the editor. To access, correct, or delete your account data, email us and we will action it.</p>
+
+    <h2>Children</h2>
+    <p class="lede" style="font-size:15px;">SubCaptions is not directed to children under 13, and we do not knowingly collect their data.</p>
+
+    <h2>Changes</h2>
+    <p class="lede" style="font-size:15px;">If we update this policy we will post the new version here with a revised date.</p>`);
+}
+
+function termsPage() {
+  return legalPage("terms.html", "Terms of Service", `
+    <p class="lede">Last updated: June 22, 2026. These terms govern your use of SubCaptions. By using the site, you agree to them.</p>
+
+    <h2>The service</h2>
+    <p class="lede" style="font-size:15px;">SubCaptions is a browser-based tool for creating, editing, and translating subtitles and captions for video. Some features are free; others require a paid plan.</p>
+
+    <h2>Your account</h2>
+    <p class="lede" style="font-size:15px;">You can sign in with Google or an email link. You are responsible for activity under your account. Keep your access secure and let us know if you suspect misuse.</p>
+
+    <h2>Plans and billing</h2>
+    <p class="lede" style="font-size:15px;">Free has no charge. Solo and Team are subscriptions billed monthly or yearly through Stripe. Paid plans renew automatically until you cancel. You can cancel any time from the billing portal; cancellation stops future charges and your access continues until the end of the period you already paid for. Refunds are handled case by case and as required by law.</p>
+
+    <h2>Your content and rights</h2>
+    <p class="lede" style="font-size:15px;">You keep ownership of the captions you create. You are responsible for having the rights to caption or translate the videos you use, and for complying with the terms of any platform a video comes from. You grant us a limited license to process your content solely to provide the service to you.</p>
+
+    <h2>Acceptable use</h2>
+    <p class="lede" style="font-size:15px;">Do not use SubCaptions for unlawful content, to infringe others' rights, to download or process material you do not have the rights to, to resell the service, or to abuse or overload the system.</p>
+
+    <h2>AI features</h2>
+    <p class="lede" style="font-size:15px;">AI translation and auto-captions are provided to help you work faster, but they can contain errors. Review the output before you rely on or publish it.</p>
+
+    <h2>Availability and changes</h2>
+    <p class="lede" style="font-size:15px;">The service is provided on an "as is" and "as available" basis. We may change, add, or discontinue features.</p>
+
+    <h2>Disclaimers and liability</h2>
+    <p class="lede" style="font-size:15px;">To the fullest extent permitted by law, SubCaptions is provided without warranties, and we are not liable for indirect or consequential damages. Our total liability is limited to the amount you paid us in the twelve months before the claim.</p>
+
+    <h2>Termination</h2>
+    <p class="lede" style="font-size:15px;">We may suspend or end access for violations of these terms. You can stop using the service at any time.</p>
+
+    <h2>Governing law</h2>
+    <p class="lede" style="font-size:15px;">These terms are governed by the laws of [your jurisdiction]. (Set this before launch.)</p>`);
+}
+
 write("styles/pages.css", CSS);
 write("languages/index.html", languagesIndex());
 write("pricing.html", pricingPage());
+write("privacy.html", privacyPage());
+write("terms.html", termsPage());
 
 for (const cp of CAPTIONER_PAGES) {
   const p = captionerPage(cp);
