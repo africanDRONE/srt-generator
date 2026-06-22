@@ -101,15 +101,19 @@ easiest free-ish host is Render. (Railway or Fly work the same way.)
 
 A "webhook" is just Stripe phoning your billing program when someone pays.
 
-1. [ ] In Stripe: **Developers** -> **Webhooks** -> **Add endpoint**.
-2. [ ] For the URL, paste your `BILLING_URL` followed by `/billing/webhook` (e.g. `https://subcaptions-billing.onrender.com/billing/webhook`).
-3. [ ] Choose events to send. Add these four:
+Note: Stripe renamed this. What used to be "Webhooks" is now under **"Event destinations,"** and the new flow asks for events first, then the URL.
+
+1. [ ] Make sure the toggle is on **Test mode**, then go straight to this address in your browser: `https://dashboard.stripe.com/test/webhooks` (this opens the page directly, no menu hunting). Or via menu: **Developers** -> **Event destinations**.
+2. [ ] Click **+ Add destination** (it may say "Add endpoint" or "Create").
+3. [ ] When it asks **which events**, search for and tick these four:
    - `checkout.session.completed`
    - `customer.subscription.created`
    - `customer.subscription.updated`
    - `customer.subscription.deleted`
-4. [ ] Save. Stripe shows a **Signing secret** (starts `whsec_`). Copy it -> `STRIPE_WEBHOOK_SECRET`.
-5. [ ] Go back to Render, add one more environment variable `STRIPE_WEBHOOK_SECRET = (the whsec_ value)`, and let it redeploy.
+4. [ ] For the **destination type**, choose **"Webhook endpoint"** (not "Amazon EventBridge" or the other options).
+5. [ ] For the **endpoint URL**, paste your `BILLING_URL` followed by `/billing/webhook` (e.g. `https://subcaptions-billing.onrender.com/billing/webhook`). Create it.
+6. [ ] On the destination's page, find **Signing secret** and click **Reveal**. Copy that value (starts `whsec_`) -> `STRIPE_WEBHOOK_SECRET`.
+7. [ ] Go back to Render, add one more environment variable `STRIPE_WEBHOOK_SECRET = (the whsec_ value)`, and let it redeploy.
 
 **How you know Part 4 worked:** Render finishes redeploying with no errors.
 
