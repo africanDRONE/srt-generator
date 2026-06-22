@@ -688,8 +688,19 @@ async function translateCaptions(){
 // Transcription needs the audio. The browser can't reach the audio inside a
 // YouTube/Vimeo iframe, so this calls a backend (see transcribe-server/) that
 // pulls the audio for ANY source and runs Whisper, returning timed cues.
+// Confirm a paid plan at click time, refreshing the session if the tier hasn't
+// loaded yet, so a real Solo/Team user is never wrongly blocked by event timing.
+async function ensurePaid(){
+  if (IS_PRO) return true;
+  let tier = (window.SubAuth && SubAuth.tier) || "free";
+  if (tier !== "solo" && tier !== "team" && window.SubAuth && SubAuth.refresh) {
+    try { await SubAuth.refresh(); tier = SubAuth.tier || "free"; } catch(e){}
+  }
+  if (tier === "solo" || tier === "team") { IS_PRO = true; return true; }
+  return false;
+}
 async function autoTranscribe(){
-  if (!IS_PRO) { toast("Auto-captions are a Solo feature. See Pricing.", "error"); return; }
+  if (!(await ensurePaid())) { toast("Auto-captions are a Solo feature. See Pricing.", "error"); return; }
   if (!currentSourceUrl) { toast("Load a video first", "error"); return; }
   if (captions.length && !confirm("Replace the current captions with auto-generated ones?")) return;
   const btn = document.getElementById("auto-btn");
@@ -733,7 +744,7 @@ async function autoTranscribe(){
 // so it runs on the transcribe-server (which can fetch any source via yt-dlp and
 // downscale to cap cost). Pro-only.
 async function burnVideo(){
-  if (!IS_PRO) { toast("Burned-in video is a Solo feature. See Pricing.", "error"); return; }
+  if (!(await ensurePaid())) { toast("Burned-in video is a Solo feature. See Pricing.", "error"); return; }
   if (!captions.length) { toast("Make some captions first", "error"); return; }
   const srt = buildSubs(false, captions.map(c => [c.line1, c.line2].filter(Boolean).join("\n")));
   const btn = document.getElementById("burn-btn");
