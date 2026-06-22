@@ -299,6 +299,7 @@ header.nav .nav-links a{color:var(--text-soft);font-size:14.5px;font-weight:500;
 h1{font-family:var(--fd);font-size:clamp(28px,4vw,40px);font-weight:700;letter-spacing:-0.8px;margin-bottom:16px;line-height:1.12}
 h2{font-family:var(--fd);font-size:23px;margin:34px 0 14px;letter-spacing:-0.3px}
 .lede{color:var(--text-soft);font-size:17px;margin-bottom:24px}.lede strong{color:var(--text)}
+.legal .lede{font-size:13.5px!important;line-height:1.6;margin-bottom:14px}.legal h2{font-size:17px;margin-top:22px}
 .cta-row{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin:6px 0 8px}
 .cta{display:inline-block;background:var(--grad);color:#fff;font-weight:600;padding:14px 28px;border-radius:12px;font-size:15px;box-shadow:0 8px 22px rgba(124,58,237,.32);transition:transform .12s}
 .cta:hover{transform:translateY(-2px);text-decoration:none}
@@ -344,7 +345,7 @@ function legalPage(slug, h1, inner) {
   const bodyHtml = `
     <nav class="crumbs"><a href="/">Home</a> › <span>${esc(h1)}</span></nav>
     <h1>${esc(h1)}</h1>
-    ${inner}
+    <div class="legal">${inner}</div>
     <p class="lede" style="font-size:13px;margin-top:34px;color:var(--muted);">Questions about this? Email <a href="mailto:support@subcaptions.com">support@subcaptions.com</a>.</p>`;
   return page({ title: `${h1} | ${SITE.name}`, metaDesc: `${h1} for ${SITE.name}, the browser-based subtitle and caption editor.`, canonical: `${SITE.origin}/${slug}`, h1, bodyHtml });
 }
@@ -357,7 +358,7 @@ function privacyPage() {
     <p class="lede" style="font-size:15px;">Your video files are never uploaded to us. Captions you create are saved locally in your browser. We collect only what we need to run accounts and billing (your email and plan), and we use a few trusted services, listed below, to handle sign-in, payments, and AI features. We do not sell your data or run advertising trackers.</p>
 
     <h2>What we collect</h2>
-    <p class="lede" style="font-size:15px;"><strong>Account.</strong> If you sign in, we store your email address and (from Google sign-in) your display name, plus your plan tier. <strong>Billing.</strong> Payments are handled by Stripe; we receive your subscription status and a customer ID, never your full card number. <strong>Basic technical data.</strong> Like most sites, our host may log standard request information (such as IP and browser type) for security and reliability.</p>
+    <p class="lede" style="font-size:15px;"><strong>Account.</strong> If you sign in, we store your email address and (from Google sign-in) your display name, plus your plan tier. <strong>Billing.</strong> Payments are handled by a third-party payment processor; we receive your subscription status and a customer ID, never your full card number. <strong>Basic technical data.</strong> Like most sites, our host may log standard request information (such as IP and browser type) for security and reliability.</p>
 
     <h2>What we do not collect</h2>
     <p class="lede" style="font-size:15px;">We do not store your video files. The captions you write are kept in your browser's local storage on your device, not on our servers (Team cloud projects, when offered, are an explicit opt-in). We do not sell personal data and we do not use third-party advertising cookies.</p>
@@ -366,7 +367,7 @@ function privacyPage() {
     <p class="lede" style="font-size:15px;">Subtitle files you open are parsed entirely in your browser. When you use translation, only the caption text is sent to the translation provider to translate it, and it is not stored or used to train models. If you use AI auto-captions, the audio is sent to a transcription provider to generate text and is not retained after processing.</p>
 
     <h2>Services we rely on</h2>
-    <p class="lede" style="font-size:15px;">We use these providers only to deliver the service: <strong>Cloudflare</strong> (hosting), <strong>Supabase</strong> (accounts and sign-in), <strong>Stripe</strong> (payments), <strong>Google</strong> (optional sign-in), <strong>Anthropic</strong> (translation), and <strong>OpenAI</strong> (optional AI auto-captions). Each processes data only as needed for its function and under its own privacy terms.</p>
+    <p class="lede" style="font-size:15px;">We rely on a small set of trusted third-party providers purely to run the service: cloud hosting and content delivery, account sign-in, payment processing, AI language translation, and AI speech-to-text for auto-captions. Each receives only the data needed for its function, under its own privacy terms, and none of them receive your video files.</p>
 
     <h2>Cookies and local storage</h2>
     <p class="lede" style="font-size:15px;">We use your browser's local storage to keep you signed in and to save your captions on your device. We do not use advertising or cross-site tracking cookies.</p>
