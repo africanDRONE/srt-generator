@@ -120,6 +120,8 @@
   .columns-head h3{font-family:var(--font-display);font-size:17px}
   .columns-head .hint{font-size:12.5px;color:var(--muted)}
   .columns{display:flex;gap:14px;overflow-x:auto;padding:4px 4px 12px;scroll-behavior:smooth}
+  .columns.fit{overflow-x:visible}
+  .columns.fit .lang-col{flex:1 1 0;min-width:0}
   .lang-col{flex:0 0 300px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow-sm);display:flex;flex-direction:column;max-height:520px;overflow:hidden}
   .lang-col.source{border-color:var(--border-strong)}
   .col-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:12px 14px;border-bottom:1px solid var(--border);background:var(--surface)}
@@ -209,9 +211,9 @@
       <div class="left-col">
         <div id="player-wrap"><div id="player-host"></div><div id="overlay" class="subtitle-overlay"></div></div>
         <div class="transport">
-          <button class="btn scrub" onclick="seekRelative(-3)"><span class="arrow">⏪</span><span class="lbl">−3s</span></button>
+          <button class="btn scrub" onclick="seekRelative(-3)" title="Back 3s (⌥C)"><span class="arrow">⏪</span><span class="lbl">−3s</span></button>
           <button class="btn play-big" id="playBtn" onclick="togglePlay()">▶ Play</button>
-          <button class="btn scrub" onclick="seekRelative(3)"><span class="arrow">⏩</span><span class="lbl">+3s</span></button>
+          <button class="btn scrub" onclick="seekRelative(3)" title="Forward 3s (⌥V)"><span class="arrow">⏩</span><span class="lbl">+3s</span></button>
         </div>
         <div class="panel control-card">
           <button class="btn auto-btn" id="auto-btn">✨ Auto-generate captions <span class="pro-tag">Pro</span></button>
@@ -235,7 +237,7 @@
             <button class="btn clear-btn" onclick="clearCurrent()">Clear</button>
             <button class="btn save-btn" id="saveBtn" onclick="saveCaption()">Save caption</button>
           </div>
-          <div class="kbd-hint"><kbd>⌥Space</kbd> play · <kbd>⌥S</kbd> in · <kbd>⌥E</kbd> out · <kbd>⌥Enter</kbd> save — works right from the caption box</div>
+          <div class="kbd-hint"><kbd>⌥Space</kbd> play · <kbd>⌥C</kbd> −3s · <kbd>⌥V</kbd> +3s · <kbd>⌥S</kbd> in · <kbd>⌥E</kbd> out · <kbd>⌥Enter</kbd> save</div>
         </div>
       </div>
 
@@ -617,6 +619,8 @@ function renderColumns(loadingCode){
     html += colHtml(loadingCode, meta.name, meta.flag, false, [], true);
   }
   document.getElementById("columns").innerHTML = html;
+  const total = 1 + Object.keys(translations).length + (loadingCode && !translations[loadingCode] ? 1 : 0);
+  document.getElementById("columns").classList.toggle("fit", total <= 3);
 }
 
 /* =================== TRANSLATE =================== */
@@ -836,6 +840,11 @@ function toast(msg, type){
       if (e.code === "KeyE") { e.preventDefault(); markEnd(); return; }
       if (e.code === "Space") { e.preventDefault(); togglePlay(); return; }
       if (e.code === "Enter" || e.code === "NumpadEnter" || e.key === "Enter") { e.preventDefault(); saveCaption(); return; }
+    }
+    // ⌥C / ⌥V skip back/forward. Option-only (not Cmd/Ctrl) so copy/paste still work.
+    if (e.altKey && !e.metaKey && !e.ctrlKey) {
+      if (e.code === "KeyC") { e.preventDefault(); seekRelative(-3); return; }
+      if (e.code === "KeyV") { e.preventDefault(); seekRelative(3); return; }
     }
     if (typing) {
       if (e.key === "Enter" && (document.activeElement.id === "line1" || document.activeElement.id === "line2")) {
