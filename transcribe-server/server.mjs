@@ -212,49 +212,51 @@ function wrap2(text) {
   return text.slice(0, split) + "\n" + text.slice(split + 1);
 }
 
-// Turn Whisper output into screen-ready cues. With word timestamps we group
-// words into short cues (breaking on length, long pauses, sentence ends, or
-// max duration) and time each cue to its first and last spoken word, so it
-// shows up exactly when the person talks. Without words, we split long
-// segments by length and spread the segment's time across the pieces.
+// Turn Whisper output into screen-ready cues. The caption TEXT comes from the
+// segment text (which keeps Whisper's punctuation and capitalization); the word
+// timestamps are used only to TIGHTEN each cue's start/end to the actual spoken
+// words, so captions don't appear during lead-in silence. Long segments are
+// split into <=2-line pieces on word boundaries, dividing the time by length.
 function buildCues(segments, words) {
+  const segs = Array.isArray(segments) ? segments : [];
+  const hasWords = Array.isArray(words) && words.length;
   const out = [];
-  if (Array.isArray(words) && words.length) {
-    let cur = [], startT = null, lastEnd = null;
-    const flush = () => {
-      if (!cur.length) return;
-      out.push({ start: startT, end: lastEnd, text: wrap2(textOf(cur)) });
-      cur = []; startT = null;
-    };
-    for (const w of words) {
-      if (cur.length) {
-        const curText = textOf(cur);
-        const prospective = textOf(cur.concat([w]));
-        const sentenceEnd = /[.!?]["')\]]?$/.test(curText);
-        if (prospective.length > MAX_CHARS || (w.start - lastEnd) > GAP ||
-            (w.end - startT) > MAX_DUR || (sentenceEnd && curText.length >= 24)) {
-          flush();
-        }
-      }
-      if (!cur.length) startT = w.start;
-      cur.push(w); lastEnd = w.end;
-    }
-    flush();
-    return out;
-  }
-  // No word timings available: fall back to segment text, splitting long ones.
-  for (const s of (segments || [])) {
+  for (const s of segs) {
     const text = (s.text || "").trim();
     if (!text) continue;
-    if (text.length <= MAX_CHARS) { out.push({ start: s.start, end: s.end, text: wrap2(text) }); continue; }
-    const parts = text.match(new RegExp(`.{1,${MAX_CHARS}}(\\s|$)`, "g")) || [text];
-    const span = (s.end - s.start) / parts.length;
-    parts.forEach((p, idx) => {
-      const t = p.trim();
-      if (t) out.push({ start: s.start + idx * span, end: s.start + (idx + 1) * span, text: wrap2(t) });
+    let start = s.start, end = s.end;
+    if (hasWords) {
+      const inside = words.filter((w) => w.end > s.start && w.start < s.end);
+      if (inside.length) { start = inside[0].start; end = inside[inside.length - 1].end; }
+    }
+    if (text.length <= MAX_CHARS) { out.push({ start, end, text: wrap2(text) }); continue; }
+    const pieces = splitByLen(text, MAX_CHARS);
+    const total = pieces.reduce((n, p) => n + p.length, 0) || 1;
+    const span = Math.max(0, end - start);
+    let t = start;
+    pieces.forEach((p, i) => {
+      const pe = i === pieces.length - 1 ? end : t + span * (p.length / total);
+      out.push({ start: t, end: pe, text: wrap2(p) });
+      t = pe;
     });
   }
+  // Fallback if Whisper returned words but no segments (rare).
+  if (!out.length && hasWords) {
+    let cur = [];
+    const flush = () => { if (cur.length) { out.push({ start: cur[0].start, end: cur[cur.length - 1].end, text: wrap2(textOf(cur)) }); cur = []; } };
+    for (const w of words) { if (cur.length && textOf(cur.concat([w])).length > MAX_CHARS) flush(); cur.push(w); }
+    flush();
+  }
   return out;
+}
+
+// Split text into pieces of at most `max` characters, breaking on word boundaries.
+function splitByLen(text, max) {
+  const ws = text.replace(/\s+/g, " ").trim().split(" ");
+  const pieces = []; let cur = "";
+  for (const w of ws) { const next = cur ? cur + " " + w : w; if (cur && next.length > max) { pieces.push(cur); cur = w; } else cur = next; }
+  if (cur) pieces.push(cur);
+  return pieces.length ? pieces : [text];
 }
 
 // Burn subtitles permanently into the video (Pro). Server-side because it needs
