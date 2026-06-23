@@ -217,8 +217,8 @@ function pricingPage() {
           <li>AI auto-captions (any language)</li>
           <li>Full-length videos, no cap</li>
           <li>Unlimited translations, many at once</li>
-          <li>Burned-in video export (1080p)</li>
-          <li>Batch multiple files</li>
+          <li>Video file upload (up to 2&nbsp;GB)</li>
+          <li>Burned-in video export (1080p) <em class="soon">coming soon</em></li>
           <li>Everything in Free</li>
         </ul>
         <a class="cta" href="#" data-plan="solo_monthly" data-plan-monthly="solo_monthly" data-plan-yearly="solo_yearly">Go Solo →</a>
@@ -228,11 +228,11 @@ function pricingPage() {
         <h2>Team</h2>
         <div class="price" data-mo="12" data-yr="120">$12<span>/mo</span></div>
         <ul>
-          <li>Hand off to a translator with a share link</li>
-          <li>Cloud-saved projects across devices</li>
-          <li>4K and long-form burned-in export</li>
-          <li>Priority processing</li>
           <li>Everything in Solo</li>
+          <li>Hand off to a translator with a share link <em class="soon">coming soon</em></li>
+          <li>Cloud-saved projects across devices <em class="soon">coming soon</em></li>
+          <li>4K &amp; long-form burned-in export <em class="soon">coming soon</em></li>
+          <li>Priority processing <em class="soon">coming soon</em></li>
         </ul>
         <a class="cta" href="#" data-plan="team_monthly" data-plan-monthly="team_monthly" data-plan-yearly="team_yearly">Go Team →</a>
         <p class="price-fine" data-mo-fine="Or $120/year (2 months free)." data-yr-fine="$120/year · 2 months free">Or $120/year (2 months free).</p>
@@ -325,6 +325,7 @@ details.faq p{padding:0 18px 16px;color:var(--text-soft)}
 .lang-card:hover{transform:translateY(-3px);box-shadow:var(--shadow);text-decoration:none}.lang-card strong{font-family:var(--fd);font-size:16px}.lang-card span{color:var(--muted);font-size:12.5px}
 .price-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:20px;width:min(1000px,94vw);position:relative;left:50%;transform:translateX(-50%)}
 .price-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:28px;position:relative;box-shadow:var(--shadow-sm);display:flex;flex-direction:column}
+.soon{font-style:normal;font-size:11px;font-weight:700;color:#9a3412;background:#ffedd5;border-radius:6px;padding:1px 7px;margin-left:4px;vertical-align:middle;white-space:nowrap}
 .price-card.featured{border-color:transparent;box-shadow:0 20px 50px rgba(124,58,237,.18);background:linear-gradient(var(--surface),var(--surface)) padding-box,var(--grad) border-box;border:2px solid transparent}
 .price-card .badge{position:absolute;top:-12px;left:28px;background:var(--grad);color:#fff;font-size:11px;font-weight:700;padding:4px 12px;border-radius:999px;text-transform:uppercase;letter-spacing:.5px}
 .price-card h2{font-family:var(--fd);margin:0 0 6px}.price{font-family:var(--fd);font-size:42px;font-weight:700;margin-bottom:16px}.price span{font-size:16px;color:var(--muted);font-weight:400}
