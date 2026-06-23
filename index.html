@@ -152,7 +152,7 @@
   .cue-cell.active{border-color:var(--brand1);background:#fff;box-shadow:0 0 0 3px rgba(99,102,241,.1)}
   .cue-time{font-family:"SF Mono",Menlo,monospace;font-size:10px;color:var(--muted);display:flex;justify-content:space-between;margin-bottom:4px;cursor:pointer}
   .cue-time:hover{color:var(--brand1)}
-  .cue-tx{width:100%;border:none;background:transparent;resize:vertical;min-height:34px;font-family:inherit;font-size:13px;color:var(--text);outline:none;line-height:1.4;padding:0}
+  .cue-tx{width:100%;border:none;background:transparent;resize:none;overflow:hidden;min-height:34px;font-family:inherit;font-size:13px;color:var(--text);outline:none;line-height:1.4;padding:0}
   .cue-tx::placeholder{color:var(--muted)}
   .col-empty{color:var(--muted);font-size:13px;text-align:center;padding:30px 14px}
   .col-empty .big{font-size:28px;margin-bottom:8px;opacity:.6}
@@ -716,6 +716,28 @@ function renderColumns(loadingCode){
     html += colHtml(loadingCode, meta.name, meta.flag, false, [], true);
   }
   document.getElementById("columns").innerHTML = html;
+  alignRows();
+}
+// Grow each caption box to fit its text, then make every column's cell at the
+// same index share a height, so a caption reads straight across all columns.
+function autosize(tx){ tx.style.height = "auto"; tx.style.height = Math.max(34, tx.scrollHeight) + "px"; }
+function alignRows(){
+  const cells = [...document.querySelectorAll("#columns .cue-cell")];
+  document.querySelectorAll("#columns .cue-tx").forEach(autosize);
+  cells.forEach(c => { c.style.minHeight = ""; });
+  if (Object.keys(translations).length < 1) return; // only the source column, nothing to align to
+  const byIdx = {};
+  cells.forEach(c => { (byIdx[c.dataset.i] = byIdx[c.dataset.i] || []).push(c); });
+  const groups = Object.values(byIdx);
+  const maxes = groups.map(g => g.reduce((m, c) => Math.max(m, c.offsetHeight), 0)); // read all first
+  groups.forEach((g, i) => g.forEach(c => { c.style.minHeight = maxes[i] + "px"; }));  // then write all
+}
+function alignOneRow(i){
+  const group = [...document.querySelectorAll('#columns .cue-cell[data-i="' + i + '"]')];
+  if (group.length < 2) { if (group[0]) group[0].style.minHeight = ""; return; }
+  group.forEach(c => { c.style.minHeight = ""; });
+  const max = group.reduce((m, c) => Math.max(m, c.offsetHeight), 0);
+  group.forEach(c => { c.style.minHeight = max + "px"; });
 }
 
 /* =================== TRANSLATE =================== */
@@ -962,8 +984,12 @@ function toast(msg, type){
     const i = +tx.dataset.i, col = tx.dataset.col, val = tx.value;
     if (col === "source") { const parts = val.split("\n"); captions[i].line1 = parts[0] || ""; captions[i].line2 = parts.slice(1).join(" "); }
     else if (translations[col]) { translations[col].lines[i] = val; }
+    autosize(tx); alignOneRow(i);
     persist();
   });
+  // Column widths are responsive, so re-wrap and re-align rows when the window changes.
+  let resizeT = null;
+  window.addEventListener("resize", () => { clearTimeout(resizeT); resizeT = setTimeout(alignRows, 150); });
 
   // deep link ?v=<id or url>
   const qp = new URLSearchParams(location.search);
