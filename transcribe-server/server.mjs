@@ -131,9 +131,9 @@ app.post("/transcribe", async (req, res) => {
     for (let i = 0; i < chunks.length; i++) {
       const offset = i * CHUNK_SECONDS;
       const { segments, words } = await whisper(path.join(dir, chunks[i]), language);
-      for (const s of tightenSegments(segments, words)) {
-        const text = (s.text || "").trim();
-        if (text) cues.push({ start: +(s.start + offset).toFixed(3), end: +(s.end + offset).toFixed(3), text });
+      for (const c of buildCues(segments, words)) {
+        const text = (c.text || "").trim();
+        if (text) cues.push({ start: +(c.start + offset).toFixed(3), end: +(c.end + offset).toFixed(3), text });
       }
     }
 
@@ -168,16 +168,75 @@ async function whisper(filePath, language) {
   return { segments: data.segments || [], words: data.words || [] };
 }
 
-// Snap each segment's start/end to the real span of the words it contains, so a
-// caption appears when the person starts speaking, not during the lead-in
-// silence. Falls back to the raw segment timing if no words overlap it.
-function tightenSegments(segments, words) {
-  if (!Array.isArray(words) || !words.length) return segments;
-  return segments.map((s) => {
-    const inside = words.filter((w) => w.end > s.start && w.start < s.end);
-    if (!inside.length) return s;
-    return { ...s, start: inside[0].start, end: inside[inside.length - 1].end };
-  });
+// Caption styling rules, Netflix-style: at most two lines, ~42 chars per line,
+// so a single long Whisper segment becomes several short, well-timed cues
+// instead of one block that wraps to three or four lines on screen.
+const MAX_LINE = 42;          // characters per line
+const MAX_CHARS = MAX_LINE * 2; // a cue is at most two lines
+const MAX_DUR = 6;            // seconds a single cue stays on screen
+const GAP = 0.7;             // a pause longer than this forces a new cue
+
+// Join word tokens into clean text (Whisper returns words without spacing).
+function textOf(toks) {
+  return toks.map((w) => (w.word || "").trim()).join(" ")
+    .replace(/\s+([,.!?;:])/g, "$1").replace(/\s+/g, " ").trim();
+}
+
+// Break a line into at most two balanced lines on a word boundary near the middle.
+function wrap2(text) {
+  text = text.replace(/\s+/g, " ").trim();
+  if (text.length <= MAX_LINE) return text;
+  const mid = Math.floor(text.length / 2);
+  const left = text.lastIndexOf(" ", mid), right = text.indexOf(" ", mid);
+  let split = (left > 0 && (mid - left <= right - mid || right < 0)) ? left : right;
+  if (split <= 0) split = left > 0 ? left : right;
+  if (split <= 0) return text;
+  return text.slice(0, split) + "\n" + text.slice(split + 1);
+}
+
+// Turn Whisper output into screen-ready cues. With word timestamps we group
+// words into short cues (breaking on length, long pauses, sentence ends, or
+// max duration) and time each cue to its first and last spoken word, so it
+// shows up exactly when the person talks. Without words, we split long
+// segments by length and spread the segment's time across the pieces.
+function buildCues(segments, words) {
+  const out = [];
+  if (Array.isArray(words) && words.length) {
+    let cur = [], startT = null, lastEnd = null;
+    const flush = () => {
+      if (!cur.length) return;
+      out.push({ start: startT, end: lastEnd, text: wrap2(textOf(cur)) });
+      cur = []; startT = null;
+    };
+    for (const w of words) {
+      if (cur.length) {
+        const curText = textOf(cur);
+        const prospective = textOf(cur.concat([w]));
+        const sentenceEnd = /[.!?]["')\]]?$/.test(curText);
+        if (prospective.length > MAX_CHARS || (w.start - lastEnd) > GAP ||
+            (w.end - startT) > MAX_DUR || (sentenceEnd && curText.length >= 24)) {
+          flush();
+        }
+      }
+      if (!cur.length) startT = w.start;
+      cur.push(w); lastEnd = w.end;
+    }
+    flush();
+    return out;
+  }
+  // No word timings available: fall back to segment text, splitting long ones.
+  for (const s of (segments || [])) {
+    const text = (s.text || "").trim();
+    if (!text) continue;
+    if (text.length <= MAX_CHARS) { out.push({ start: s.start, end: s.end, text: wrap2(text) }); continue; }
+    const parts = text.match(new RegExp(`.{1,${MAX_CHARS}}(\\s|$)`, "g")) || [text];
+    const span = (s.end - s.start) / parts.length;
+    parts.forEach((p, idx) => {
+      const t = p.trim();
+      if (t) out.push({ start: s.start + idx * span, end: s.start + (idx + 1) * span, text: wrap2(t) });
+    });
+  }
+  return out;
 }
 
 // Burn subtitles permanently into the video (Pro). Server-side because it needs
