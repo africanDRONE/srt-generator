@@ -252,10 +252,15 @@ function pricingPage() {
         document.querySelectorAll(".price-fine[data-mo-fine]").forEach(function (f) {
           f.textContent = yearly ? f.dataset.yrFine : f.dataset.moFine;
         });
+        if (window.SubAuth && window.SubAuth.relabelPlans) window.SubAuth.relabelPlans();
       }
-      document.querySelectorAll(".bill-opt").forEach(function (o) {
-        o.addEventListener("click", function () { apply(o.dataset.bill); });
-      });
+      function wire() {
+        document.querySelectorAll(".bill-opt").forEach(function (o) {
+          o.addEventListener("click", function (e) { e.preventDefault(); apply(o.dataset.bill); });
+        });
+      }
+      if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", wire);
+      else wire();
     })();
     </script>
 
