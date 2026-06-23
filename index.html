@@ -549,19 +549,27 @@ function thumbFor(){
   } catch(e){}
   return null;
 }
+// The signed-in account id, or null when signed out. Projects are tagged with
+// this so the "pick up where you left off" list is per-account, not per-browser.
+function currentUserId(){ return (window.SubAuth && window.SubAuth.user && window.SubAuth.user.id) || null; }
 function persist(){
   try {
     let th = thumbFor();
     if (!th) { try { const prev = JSON.parse(localStorage.getItem("subcap-" + currentKey)); if (prev && prev.th) th = prev.th; } catch(e){} }
-    localStorage.setItem("subcap-" + currentKey, JSON.stringify({ c: captions, t: translations, u: currentSourceUrl, ts: Date.now(), th: th || "" }));
+    localStorage.setItem("subcap-" + currentKey, JSON.stringify({ c: captions, t: translations, u: currentSourceUrl, ts: Date.now(), th: th || "", uid: currentUserId() }));
   } catch(e){}
 }
 function renderRecent(){
   const el = document.getElementById("recent-projects"); if (!el) return;
+  const me = currentUserId();
   const items = [];
   for (let i=0;i<localStorage.length;i++){
     const k = localStorage.key(i); if (!k || !k.startsWith("subcap-")) continue;
-    try { const o = JSON.parse(localStorage.getItem(k)); if (o && o.u && o.c && o.c.length) items.push({ url:o.u, count:o.c.length, ts:o.ts||0, th:o.th||"" }); } catch(e){}
+    try {
+      const o = JSON.parse(localStorage.getItem(k));
+      const owner = (o && o.uid) || null; // untagged = legacy/anonymous, claimable
+      if (o && o.u && o.c && o.c.length && (owner === me || !owner)) items.push({ url:o.u, count:o.c.length, ts:o.ts||0, th:o.th||"" });
+    } catch(e){}
   }
   if (!items.length) { el.classList.add("hidden"); return; }
   items.sort((a,b)=>b.ts-a.ts);
@@ -635,9 +643,12 @@ function fitProject(){
   return true;
 }
 function loadState(key){
-  try { const o = JSON.parse(localStorage.getItem("subcap-" + key)) || {}; captions = o.c || []; translations = o.t || {}; }
+  let o = {};
+  try { o = JSON.parse(localStorage.getItem("subcap-" + key)) || {}; captions = o.c || []; translations = o.t || {}; }
   catch(e){ captions = []; translations = {}; }
-  if (fitProject()) persist(); // tidy pre-existing long captions to <=2 lines on open
+  // Claim a legacy/anonymous project for the signed-in account so it stays in their list.
+  const claim = currentUserId() && o.c && o.c.length && !o.uid;
+  if (fitProject() || claim) persist(); // tidy long captions and/or stamp ownership on open
 }
 
 /* =================== EDITOR FLOW =================== */
@@ -1075,7 +1086,11 @@ function toast(msg, type){
   const qp = new URLSearchParams(location.search);
   if (qp.get("pro") === "1") IS_PRO = true; // dev/test flag
   // Real entitlement: lib/auth.js broadcasts the signed-in user's tier.
-  document.addEventListener("subauth", (e) => { if ((e.detail.tier && e.detail.tier !== "free") || qp.get("pro") === "1") IS_PRO = true; });
+  document.addEventListener("subauth", (e) => {
+    if ((e.detail.tier && e.detail.tier !== "free") || qp.get("pro") === "1") IS_PRO = true;
+    // Re-scope the recent list whenever the user signs in or out (landing view only).
+    if (!document.body.classList.contains("editing-tab")) renderRecent();
+  });
   if (qp.get("v")) { document.body.classList.add("editing-tab"); startEditor(qp.get("v")); }
   else renderRecent();
 
