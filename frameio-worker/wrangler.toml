@@ -1,0 +1,18 @@
+name = "subcaptions-frameio"
+main = "frameio.js"
+compatibility_date = "2026-01-01"
+
+# Public config (non-secret).
+[vars]
+ALLOWED_ORIGIN = "https://subcaptions.johnnie-miller.workers.dev"  # your site origin (set to your custom domain in prod)
+SELF_ORIGIN    = "https://subcaptions-frameio.johnnie-miller.workers.dev"  # this Worker's own URL
+
+# Token storage. Create with:  wrangler kv namespace create TOKENS
+# then paste the returned id below.
+[[kv_namespaces]]
+binding = "TOKENS"
+id = "b1dcc0bd0d804acf88d1cca0781ef137"
+
+# Secrets (do NOT put these here). Set them with:
+#   wrangler secret put IMS_CLIENT_ID
+#   wrangler secret put IMS_CLIENT_SECRET
