@@ -354,6 +354,7 @@ let videoDuration = 0, lengthLocked = false;
 let kind = null;                     // 'yt' | 'vimeo' | 'html5'
 let ytP = null, vmP = null, vidEl = null;
 let ready = false, cachedTime = 0, isPlaying = false, loopStarted = false;
+let vimeoThumb = "";                  // thumbnail URL fetched from Vimeo oEmbed for the resume list
 
 function hashStr(s){ let h=0; for(let i=0;i<s.length;i++){ h=(h*31 + s.charCodeAt(i))|0; } return Math.abs(h).toString(36); }
 
@@ -412,7 +413,7 @@ function loadVimeoAPI(cb){ if (window.Vimeo && window.Vimeo.Player) { cb(); retu
 function resetPlayer(){
   ready = false; cachedTime = 0; isPlaying = false;
   try { if (vidEl) vidEl.pause(); } catch(e){}
-  ytP = null; vmP = null; vidEl = null; kind = null;
+  ytP = null; vmP = null; vidEl = null; kind = null; vimeoThumb = "";
   document.getElementById("player-host").innerHTML = "";
 }
 function updatePlayBtn(p){ isPlaying = p; document.getElementById("playBtn").textContent = p ? "⏸ Pause" : "▶ Play"; }
@@ -451,6 +452,8 @@ function mount(source){
       });
     });
   } else if (kind === "vimeo") {
+    fetch("https://vimeo.com/api/oembed.json?url=" + encodeURIComponent("https://vimeo.com/" + source.id))
+      .then(r => r.ok ? r.json() : null).then(d => { if (d && d.thumbnail_url) vimeoThumb = d.thumbnail_url; }).catch(() => {});
     loadVimeoAPI(() => {
       vmP = new Vimeo.Player(host, { id: Number(source.id), responsive: false, width: 640 });
       vmP.on("timeupdate", d => { cachedTime = d.seconds; });
@@ -461,12 +464,18 @@ function mount(source){
     });
   } else { // html5
     const v = document.createElement("video");
+    v.crossOrigin = "anonymous"; // request with CORS so we can grab a real thumbnail frame
     v.src = source.src; v.controls = true; v.playsInline = true; v.preload = "metadata";
     v.addEventListener("loadedmetadata", afterReady);
     v.addEventListener("timeupdate", () => { cachedTime = v.currentTime; });
     v.addEventListener("play", () => updatePlayBtn(true));
     v.addEventListener("pause", () => updatePlayBtn(false));
-    v.addEventListener("error", () => toast("Couldn't play that link. Try a direct video file URL.", "error"));
+    v.addEventListener("error", () => {
+      // A cross-origin host without CORS headers rejects the crossorigin request.
+      // Retry once without it: playback still works, we just can't capture a frame.
+      if (v.getAttribute("crossorigin") !== null) { v.removeAttribute("crossorigin"); v.load(); return; }
+      toast("Couldn't play that link. Try a direct video file URL.", "error");
+    });
     host.appendChild(v); vidEl = v;
   }
 }
@@ -498,19 +507,44 @@ function seekTo(i){
 }
 
 /* =================== PERSISTENCE =================== */
-function persist(){ try { localStorage.setItem("subcap-" + currentKey, JSON.stringify({ c: captions, t: translations, u: currentSourceUrl, ts: Date.now() })); } catch(e){} }
+// Grab a real frame from the current video for the resume-list thumbnail.
+// YouTube has a published thumbnail; Vimeo gives one via oEmbed; for direct
+// HTML5 files we draw the current frame to a canvas (works when the host sends
+// CORS headers, otherwise the canvas is tainted and we return null gracefully).
+function thumbFor(){
+  const m = (currentSourceUrl || "").match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([\w-]{11})/);
+  if (m) return "https://img.youtube.com/vi/" + m[1] + "/mqdefault.jpg";
+  if (kind === "vimeo" && vimeoThumb) return vimeoThumb;
+  try {
+    if (kind === "html5" && vidEl && vidEl.videoWidth) {
+      const cw = 160, ch = Math.round(cw * (vidEl.videoHeight / vidEl.videoWidth)) || 90;
+      const cv = document.createElement("canvas"); cv.width = cw; cv.height = ch;
+      cv.getContext("2d").drawImage(vidEl, 0, 0, cw, ch);
+      return cv.toDataURL("image/jpeg", 0.6);
+    }
+  } catch(e){}
+  return null;
+}
+function persist(){
+  try {
+    let th = thumbFor();
+    if (!th) { try { const prev = JSON.parse(localStorage.getItem("subcap-" + currentKey)); if (prev && prev.th) th = prev.th; } catch(e){} }
+    localStorage.setItem("subcap-" + currentKey, JSON.stringify({ c: captions, t: translations, u: currentSourceUrl, ts: Date.now(), th: th || "" }));
+  } catch(e){}
+}
 function renderRecent(){
   const el = document.getElementById("recent-projects"); if (!el) return;
   const items = [];
   for (let i=0;i<localStorage.length;i++){
     const k = localStorage.key(i); if (!k || !k.startsWith("subcap-")) continue;
-    try { const o = JSON.parse(localStorage.getItem(k)); if (o && o.u && o.c && o.c.length) items.push({ url:o.u, count:o.c.length, ts:o.ts||0 }); } catch(e){}
+    try { const o = JSON.parse(localStorage.getItem(k)); if (o && o.u && o.c && o.c.length) items.push({ url:o.u, count:o.c.length, ts:o.ts||0, th:o.th||"" }); } catch(e){}
   }
   if (!items.length) { el.classList.add("hidden"); return; }
   items.sort((a,b)=>b.ts-a.ts);
   el.innerHTML = '<div class="recent-title">Pick up where you left off</div>' + items.slice(0,5).map(it => {
     const m = (it.url || "").match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([\w-]{11})/);
-    const thumb = m ? `<img src="https://img.youtube.com/vi/${m[1]}/mqdefault.jpg" alt="" loading="lazy">` : "🎬";
+    const src = it.th || (m ? `https://img.youtube.com/vi/${m[1]}/mqdefault.jpg` : "");
+    const thumb = src ? `<img src="${src}" alt="" loading="lazy">` : "🎬";
     return `<button class="recent-item" data-resume="${encodeURIComponent(it.url)}"><span class="recent-thumb">${thumb}</span><span class="recent-meta"><span class="recent-url">${escapeHtml(it.url)}</span><span class="recent-count">${it.count} caption${it.count===1?"":"s"}</span></span></button>`;
   }).join("");
   el.classList.remove("hidden");
