@@ -212,7 +212,7 @@ function pricingPage() {
       <div class="price-card featured">
         <div class="badge">Most popular</div>
         <h2>Solo</h2>
-        <div class="price" data-mo="5" data-yr="48">$5<span>/mo</span></div>
+        <div class="price" data-mo="6" data-yr="60">$6<span>/mo</span></div>
         <ul>
           <li>AI auto-captions (any language)</li>
           <li>Full-length videos, no cap</li>
@@ -222,11 +222,11 @@ function pricingPage() {
           <li>Everything in Free</li>
         </ul>
         <a class="cta" href="#" data-plan="solo_monthly" data-plan-monthly="solo_monthly" data-plan-yearly="solo_yearly">Go Solo →</a>
-        <p class="price-fine" data-mo-fine="Or $48/year." data-yr-fine="$48/year · save $12">Or $48/year.</p>
+        <p class="price-fine" data-mo-fine="Or $60/year (2 months free)." data-yr-fine="$60/year · 2 months free">Or $60/year (2 months free).</p>
       </div>
       <div class="price-card">
         <h2>Team</h2>
-        <div class="price" data-mo="18" data-yr="180">$18<span>/mo</span></div>
+        <div class="price" data-mo="12" data-yr="120">$12<span>/mo</span></div>
         <ul>
           <li>Hand off to a translator with a share link</li>
           <li>Cloud-saved projects across devices</li>
@@ -235,7 +235,7 @@ function pricingPage() {
           <li>Everything in Solo</li>
         </ul>
         <a class="cta" href="#" data-plan="team_monthly" data-plan-monthly="team_monthly" data-plan-yearly="team_yearly">Go Team →</a>
-        <p class="price-fine" data-mo-fine="Or $180/year (2 months free)." data-yr-fine="$180/year · 2 months free">Or $180/year (2 months free).</p>
+        <p class="price-fine" data-mo-fine="Or $120/year (2 months free)." data-yr-fine="$120/year · 2 months free">Or $120/year (2 months free).</p>
       </div>
     </div>
     <script>
@@ -272,7 +272,7 @@ function pricingPage() {
     <p class="lede" style="margin-top:24px;font-size:14px;">Higher volume or API access for an agency? <a href="/">Get in touch.</a></p>
     <script type="module" src="/lib/auth.js"></script>
   `;
-  return page({ title: `Pricing | ${SITE.name}`, metaDesc: "SubCaptions pricing. Caption free; Solo $5/mo for AI captions, full-length, and burned-in export; Team $18/mo for translator handoff and 4K burn-in.", canonical, h1: "Pricing", bodyHtml });
+  return page({ title: `Pricing | ${SITE.name}`, metaDesc: "SubCaptions pricing. Caption free; Solo $6/mo for AI captions, full-length, and burned-in export; Team $12/mo for translator handoff and 4K burn-in.", canonical, h1: "Pricing", bodyHtml });
 }
 
 /* ---------- shared stylesheet ---------- */
