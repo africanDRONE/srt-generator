@@ -53,7 +53,7 @@ app.use((req, res, next) => {
   next();
 });
 
-const BUILD = "2026-06-24-cues-v2"; // bump on deploy to verify what's live
+const BUILD = "2026-06-24-cues-v3-pro"; // bump on deploy to verify what's live
 app.get("/healthz", (_req, res) => res.json({ ok: true, build: BUILD }));
 
 // Resolve the caller's subscription tier from their Supabase access token.
@@ -190,10 +190,18 @@ async function whisper(filePath, language) {
 // Caption styling rules, Netflix-style: at most two lines, ~42 chars per line,
 // so a single long Whisper segment becomes several short, well-timed cues
 // instead of one block that wraps to three or four lines on screen.
-const MAX_LINE = 42;          // characters per line
+// Rules derived from professional broadcast captions (analysed against NASA's
+// official SRT for this footage): two FILLED lines per cue (~44 chars/line),
+// ~6s average on screen, ~15 chars/sec reading speed, don't fragment at every
+// sentence, break lines at punctuation/balanced points without dangling words.
+const MAX_LINE = 42;          // characters per line (Netflix standard; NASA ran to ~50)
 const MAX_CHARS = MAX_LINE * 2; // a cue is at most two lines
-const MAX_DUR = 6;            // seconds a single cue stays on screen
-const GAP = 0.7;             // a pause longer than this forces a new cue
+const HARD_MAX_DUR = 16;     // a cue can linger this long on slow speech (NASA hit ~18)
+const FILL = 50;             // only break early at a sentence end once the cue is this full
+const GAP = 0.85;            // a silent pause longer than this forces a new cue
+const CPS = 15;              // target reading speed (chars/sec) -> drives min on-screen time
+// Short function words we avoid leaving stranded at the end of line one.
+const FUNC = new Set(["a","an","the","of","to","in","on","at","and","or","but","for","with","is","are","was","were","we","i","he","she","it","you","they","that","this","my","your","our","as","so","be","by"]);
 
 // Join word tokens into clean text (Whisper returns words without spacing).
 function textOf(toks) {
@@ -201,20 +209,34 @@ function textOf(toks) {
     .replace(/\s+([,.!?;:])/g, "$1").replace(/\s+/g, " ").trim();
 }
 
-// Break a line into at most two balanced lines on a word boundary near the middle.
+// Break into at most two lines at the best point: balanced length, strongly
+// preferring a break right after punctuation, and never leaving a short function
+// word stranded at the end of line one.
 function wrap2(text) {
   text = text.replace(/\s+/g, " ").trim();
   if (text.length <= MAX_LINE) return text;
-  const mid = Math.floor(text.length / 2);
-  const left = text.lastIndexOf(" ", mid), right = text.indexOf(" ", mid);
-  let split = (left > 0 && (mid - left <= right - mid || right < 0)) ? left : right;
-  if (split <= 0) split = left > 0 ? left : right;
-  if (split <= 0) return text;
-  return text.slice(0, split) + "\n" + text.slice(split + 1);
+  const w = text.split(" ");
+  let best = -1, bestScore = Infinity;
+  for (let i = 0; i < w.length - 1; i++) {
+    const l1 = w.slice(0, i + 1).join(" "), l2 = w.slice(i + 1).join(" ");
+    if (l1.length > MAX_LINE) break;       // line one already too long; no point going further
+    if (l2.length > MAX_LINE) continue;     // line two wouldn't fit; try a later split
+    let score = Math.abs(l1.length - l2.length);            // prefer balanced lines
+    if (/[,.!?;:]$/.test(w[i])) score -= 20;                 // strongly prefer breaking after punctuation
+    if (FUNC.has(w[i].toLowerCase().replace(/[^a-z']/g, ""))) score += 12; // avoid dangling function word
+    if (score < bestScore) { bestScore = score; best = i; }
+  }
+  if (best < 0) { // nothing fit two lines cleanly; fall back to a middle break
+    const mid = Math.floor(text.length / 2);
+    const l = text.lastIndexOf(" ", mid), r = text.indexOf(" ", mid);
+    const s = l > 0 ? l : r;
+    return s > 0 ? text.slice(0, s) + "\n" + text.slice(s + 1) : text;
+  }
+  return w.slice(0, best + 1).join(" ") + "\n" + w.slice(best + 1).join(" ");
 }
 
-const MIN_DUR = 1.0;   // a cue shouldn't flash for less than ~1s
-const MIN_CHARS = 16;  // merge a cue shorter than this into a neighbour (kills orphan words)
+const MIN_DUR = 1.3;   // a cue shouldn't flash for less than this
+const MIN_CHARS = 18;  // merge a cue shorter than this into a neighbour (kills orphan words)
 
 function tokenize(text) { return text.replace(/\s+/g, " ").trim().split(" ").filter(Boolean); }
 function joinTokens(toks) { return toks.join(" ").replace(/\s+([,.!?;:])/g, "$1"); }
@@ -265,7 +287,10 @@ function packTimed(toks) {
       const gap = tk.start - cur[cur.length - 1].end;
       const dur = tk.end - cur[0].start;
       const sentenceEnd = /[.!?]["')\]]?$/.test(curText);
-      if (prospective.length > MAX_CHARS || dur > MAX_DUR || gap > GAP || (sentenceEnd && curText.length >= 24)) flush();
+      // Break when: the two lines are full, a real pause occurs, the cue would
+      // run too long, or a sentence ends AND the cue is already well-filled
+      // (so we don't fragment on every short sentence the way we used to).
+      if (prospective.length > MAX_CHARS || gap > GAP || dur > HARD_MAX_DUR || (sentenceEnd && curText.length >= FILL)) flush();
     }
     cur.push(tk);
   }
@@ -286,11 +311,15 @@ function cleanup(cues) {
     }
     merged.push({ ...c });
   }
+  // Hold each cue on screen long enough to read it (reading-speed floor), without
+  // overlapping the next cue. This is what gives the professional ~6s-average feel.
   for (let i = 0; i < merged.length; i++) {
     const c = merged[i], next = merged[i + 1];
-    if (c.end - c.start < MIN_DUR) {
-      const want = c.start + MIN_DUR;
-      c.end = next ? Math.max(c.start + 0.3, Math.min(want, next.start - 0.05)) : want;
+    const chars = c.text.replace(/\n/g, " ").length;
+    const need = Math.max(MIN_DUR, chars / CPS);
+    if (c.end - c.start < need) {
+      const want = c.start + need;
+      c.end = next ? Math.max(c.start + 0.4, Math.min(want, next.start - 0.04)) : want;
     }
   }
   return merged;
