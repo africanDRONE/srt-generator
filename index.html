@@ -142,9 +142,13 @@
   .col-dl{display:flex;gap:6px}
   .col-dl button,.col-x{cursor:pointer;font-family:inherit;border:1px solid var(--border-strong);background:var(--surface-2);color:var(--text-soft);border-radius:7px;padding:5px 9px;font-size:12px;font-weight:600}
   .col-dl button:hover{border-color:var(--brand1);color:var(--brand1);background:#fff}
+  .col-show{white-space:nowrap}
+  .col-show.on{background:var(--grad);border-color:transparent;color:#fff}
+  .col-show.on:hover{color:#fff;background:var(--grad)}
   .col-x{padding:5px 8px;color:var(--muted);margin-left:4px}.col-x:hover{border-color:var(--error);color:var(--error)}
   .col-body{overflow-y:auto;flex:1;padding:10px;display:flex;flex-direction:column;gap:7px}
-  .cue-cell{border:1px solid var(--border);border-radius:9px;padding:7px 9px;background:var(--surface-2);transition:border-color .1s,background .1s}
+  .cue-cell{border:1px solid var(--border);border-radius:9px;padding:7px 9px;background:var(--surface-2);transition:border-color .1s,background .1s;cursor:pointer}
+  .cue-cell .cue-tx{cursor:text}
   .cue-cell.active{border-color:var(--brand1);background:#fff;box-shadow:0 0 0 3px rgba(99,102,241,.1)}
   .cue-time{font-family:"SF Mono",Menlo,monospace;font-size:10px;color:var(--muted);display:flex;justify-content:space-between;margin-bottom:4px;cursor:pointer}
   .cue-time:hover{color:var(--brand1)}
@@ -354,6 +358,7 @@ let currentStart = null, currentEnd = null, editingIdx = null;
 let currentKey = null;               // storage + filename key for the loaded source
 let currentSourceUrl = "";           // raw pasted URL (sent to the transcription service)
 let videoDuration = 0, lengthLocked = false;
+let overlayTrack = "source";          // which column ("source" or a lang code) shows on the video
 
 /* =================== PLAYER ABSTRACTION =================== */
 let kind = null;                     // 'yt' | 'vimeo' | 'html5'
@@ -613,8 +618,13 @@ function startTimeLoop(){
     if (!videoDuration) checkDuration(); // YouTube duration is sometimes 0 until playback starts
     const t = getCurrentTime();
     const a = captions.find(c => t >= c.start && t <= c.end);
-    document.getElementById("overlay").textContent = a ? [a.line1,a.line2].filter(Boolean).join("\n") : "";
     const activeIdx = a ? captions.indexOf(a) : -1;
+    let overlayText = "";
+    if (a) {
+      if (overlayTrack !== "source" && translations[overlayTrack]) overlayText = translations[overlayTrack].lines[activeIdx] || "";
+      else overlayText = [a.line1, a.line2].filter(Boolean).join("\n");
+    }
+    document.getElementById("overlay").textContent = overlayText;
     document.querySelectorAll(".cue-cell").forEach(el => el.classList.toggle("active", +el.dataset.i === activeIdx));
   }, 90);
 }
@@ -677,9 +687,10 @@ function delCap(i){
 /* =================== COLUMNS (source + translations) =================== */
 function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function colHtml(key, title, flag, isSource, rows, loading){
+  const showing = overlayTrack === key;
   const head = `<div class="col-head">
       <div class="col-title">${flag ? `<span class="flag">${flag}</span>` : ""}${escapeHtml(title)}${isSource ? "" : `<button class="col-x" data-rm="${key}" title="Remove">✕</button>`}</div>
-      <div class="col-dl"><button data-dl="${key}" data-fmt="srt">↓ .srt</button><button data-dl="${key}" data-fmt="vtt">↓ .vtt</button></div>
+      <div class="col-dl"><button class="col-show${showing ? " on" : ""}" data-show="${key}" title="Show this track on the video">${showing ? "👁 On video" : "👁 Show on video"}</button><button data-dl="${key}" data-fmt="srt">↓ .srt</button><button data-dl="${key}" data-fmt="vtt">↓ .vtt</button></div>
     </div>`;
   let body;
   if (loading) body = `<div class="col-loading">Translating…</div>`;
@@ -824,7 +835,7 @@ async function autoTranscribe(){
     if (!cues.length) throw new Error("No speech found in this video");
     captions = cues.map(c => { const p = (c.text || "").split("\n"); return { start: c.start, end: c.end, line1: p[0] || "", line2: p[1] || "" }; });
     captions.sort((a, b) => a.start - b.start);
-    translations = {}; // a fresh transcript invalidates old translation columns
+    translations = {}; overlayTrack = "source"; // a fresh transcript invalidates old translation columns
     persist();
     renderColumns();
     toast(DEMO_TRANSCRIBE ? "Demo: auto-captions simulated" : "Auto-captions generated, review and edit", "success");
@@ -937,10 +948,14 @@ function toast(msg, type){
   const cols = document.getElementById("columns");
   cols.addEventListener("click", e => {
     const dl = e.target.closest("[data-dl]"); if (dl) { exportCol(dl.dataset.dl, dl.dataset.fmt === "vtt"); return; }
-    const rm = e.target.closest("[data-rm]"); if (rm) { delete translations[rm.dataset.rm]; persist(); renderColumns(); return; }
+    const sh = e.target.closest("[data-show]"); if (sh) { overlayTrack = sh.dataset.show; renderColumns(); return; }
+    const rm = e.target.closest("[data-rm]"); if (rm) { if (overlayTrack === rm.dataset.rm) overlayTrack = "source"; delete translations[rm.dataset.rm]; persist(); renderColumns(); return; }
     const ed = e.target.closest("[data-edit]"); if (ed) { editCap(+ed.dataset.edit); return; }
     const de = e.target.closest("[data-del]"); if (de) { delCap(+de.dataset.del); return; }
     const sk = e.target.closest("[data-seek]"); if (sk) { seekTo(+sk.dataset.seek); return; }
+    // Click anywhere on a caption row (except the editable text / its controls) to jump the video there.
+    const cell = e.target.closest(".cue-cell");
+    if (cell && e.target.tagName !== "TEXTAREA" && !e.target.closest("button")) { seekTo(+cell.dataset.i); }
   });
   cols.addEventListener("input", e => {
     const tx = e.target.closest(".cue-tx"); if (!tx) return;
