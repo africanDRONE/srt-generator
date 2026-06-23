@@ -599,14 +599,16 @@ async function resolveR2Media(r2Key){
   return data.url;
 }
 async function mountR2(source){
-  resetPlayer(); kind = "r2"; currentR2Key = source.r2Key;
+  resetPlayer();
   const host = document.getElementById("player-host");
   host.innerHTML = '<div class="fio-status">Loading your upload…</div>';
   try {
     const direct = await resolveR2Media(source.r2Key);
     currentMediaUrl = direct;
+    // Mount as html5 so all existing player controls work. We keep currentR2Key
+    // as the marker for "re-sign before transcribe" / "delete cloud copy".
     mount({ kind: "html5", src: direct, key: source.key });
-    kind = "r2"; currentR2Key = source.r2Key; // mount(html5) overwrote these; restore so transcribe re-signs and delete-on-export works
+    currentR2Key = source.r2Key;
   } catch (e) {
     host.innerHTML = '<div class="fio-status">' + escapeHtml(e.message || "Couldn’t load that upload.") + '</div>';
   }
@@ -1140,7 +1142,7 @@ async function autoTranscribe(){
       // Frame.io / R2 signed URLs expire, so fetch a fresh one right before transcribing.
       let fetchUrl = currentMediaUrl || currentSourceUrl;
       if (kind === "frameio") { try { fetchUrl = await resolveFrameioMedia(currentSourceUrl); currentMediaUrl = fetchUrl; } catch(e){ throw new Error(e.code === 401 ? "Connect your Frame.io account first." : (e.message || "Frame.io resolve failed")); } }
-      if (kind === "r2" && currentR2Key) { try { fetchUrl = await resolveR2Media(currentR2Key); currentMediaUrl = fetchUrl; } catch(e){ throw new Error(e.message || "Upload resolve failed"); } }
+      if (currentR2Key) { try { fetchUrl = await resolveR2Media(currentR2Key); currentMediaUrl = fetchUrl; } catch(e){ throw new Error(e.message || "Upload resolve failed"); } }
       const res = await fetch(TRANSCRIBE_BASE.replace(/\/$/, "") + "/transcribe", {
         method: "POST", headers: authHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify({ url: fetchUrl })
