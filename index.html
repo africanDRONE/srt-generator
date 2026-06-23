@@ -69,6 +69,10 @@
   .upload-progress .bar{height:6px;background:var(--surface-2);border-radius:99px;overflow:hidden}
   .upload-progress .fill{height:100%;width:0%;background:var(--grad);transition:width .15s}
   .upload-progress .label{margin-top:6px;font-size:12.5px;color:var(--text-soft);text-align:center}
+  .gen-progress{margin:10px 0 2px}
+  .gen-progress .bar{height:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:99px;overflow:hidden}
+  .gen-progress .fill{height:100%;width:0%;background:var(--grad);transition:width .4s ease}
+  .gen-progress .label{margin-top:7px;font-size:13px;color:var(--text-soft);text-align:center;font-weight:500}
   .source-msg{max-width:640px;margin:0 auto 14px;padding:11px 15px;border-radius:10px;font-size:13.5px;line-height:1.45;text-align:left}
   .source-msg.warn{background:#fff7ed;border:1px solid #fed7aa;color:#9a3412}
   .source-msg.error{background:#fef2f2;border:1px solid #fecaca;color:#991b1b}
@@ -283,6 +287,7 @@
         </div>
         <div class="panel control-card">
           <button class="btn auto-btn" id="auto-btn">✨ Auto-generate captions <span class="pro-tag">Solo</span></button>
+          <div id="gen-progress" class="gen-progress" hidden><div class="bar"><div class="fill"></div></div><div class="label">Working…</div></div>
           <button class="btn auto-btn" id="burn-btn" style="margin-top:10px" disabled aria-disabled="true">🎬 Export burned-in video <span class="pro-tag">Coming soon</span></button>
           <div class="marks">
             <div class="mark">
@@ -1099,6 +1104,40 @@ function showBusy(on){
   if (!b) { b = document.createElement("div"); b.id = "topbar"; document.body.appendChild(b); }
   b.classList.toggle("show", !!on);
 }
+// Paced progress for opaque server jobs. Transcription happens server-side with
+// no streaming, so this advances through the expected phases on a timer and
+// snaps to 100% when the real result lands. It's an honest estimate, not a byte
+// count, but it tells the user the job is alive and roughly where it is.
+const TRANSCRIBE_STAGES = [
+  { at: 0,  pct: 18, msg: "Connecting to the server…" },
+  { at: 3,  pct: 40, msg: "Fetching the audio…" },
+  { at: 9,  pct: 70, msg: "Transcribing speech…" },
+  { at: 22, pct: 88, msg: "Aligning caption timing…" },
+  { at: 50, pct: 95, msg: "Almost there… (longer videos take a bit)" },
+];
+function startGenProgress(stages){
+  const el = document.getElementById("gen-progress");
+  if (!el) return { done(){} };
+  const fill = el.querySelector(".fill"), lbl = el.querySelector(".label");
+  el.hidden = false; let pct = 2; fill.style.width = "2%"; lbl.textContent = stages[0].msg;
+  const t0 = Date.now();
+  const tick = setInterval(() => {
+    const elapsed = (Date.now() - t0) / 1000;
+    let s = stages[0];
+    for (const st of stages) if (elapsed >= st.at) s = st;
+    lbl.textContent = s.msg;
+    pct += Math.max(0.15, (s.pct - pct) * 0.07);
+    if (pct > s.pct) pct = s.pct;
+    fill.style.width = pct.toFixed(1) + "%";
+  }, 200);
+  return {
+    done(ok) {
+      clearInterval(tick);
+      if (ok) { fill.style.width = "100%"; lbl.textContent = "Captions ready"; setTimeout(() => { el.hidden = true; fill.style.width = "0%"; }, 700); }
+      else { el.hidden = true; fill.style.width = "0%"; }
+    },
+  };
+}
 // Styled confirm dialog (replaces the native browser confirm box).
 function confirmModal(msg, okLabel){
   return new Promise(res => {
@@ -1141,6 +1180,7 @@ async function autoTranscribe(){
   const btn = document.getElementById("auto-btn");
   const label = btn.innerHTML;
   btn.disabled = true; btn.textContent = "Transcribing…"; showBusy(true);
+  const prog = startGenProgress(TRANSCRIBE_STAGES);
   try {
     let cues;
     if (DEMO_TRANSCRIBE) {
@@ -1156,13 +1196,21 @@ async function autoTranscribe(){
       let fetchUrl = currentMediaUrl || currentSourceUrl;
       if (kind === "frameio") { try { fetchUrl = await resolveFrameioMedia(currentSourceUrl); currentMediaUrl = fetchUrl; } catch(e){ throw new Error(e.code === 401 ? "Connect your Frame.io account first." : (e.message || "Frame.io resolve failed")); } }
       if (currentR2Key) { try { fetchUrl = await resolveR2Media(currentR2Key); currentMediaUrl = fetchUrl; } catch(e){ throw new Error(e.message || "Upload resolve failed"); } }
-      const res = await fetch(TRANSCRIBE_BASE.replace(/\/$/, "") + "/transcribe", {
-        method: "POST", headers: authHeaders({ "Content-Type": "application/json" }),
-        body: JSON.stringify({ url: fetchUrl })
-      });
+      // Abort if the server never responds, so the user gets an error instead of an endless bar.
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 5 * 60 * 1000);
+      let res;
+      try {
+        res = await fetch(TRANSCRIBE_BASE.replace(/\/$/, "") + "/transcribe", {
+          method: "POST", headers: authHeaders({ "Content-Type": "application/json" }),
+          body: JSON.stringify({ url: fetchUrl }), signal: ctrl.signal,
+        });
+      } catch (e) {
+        throw new Error(e.name === "AbortError" ? "Transcription timed out. The server may be busy, try again in a moment." : "Couldn't reach the transcription server.");
+      } finally { clearTimeout(timer); }
       if (res.status === 402) throw new Error("Auto-captions need a Solo plan. Upgrade in Pricing.");
       if (res.status === 401) throw new Error("Please sign in to use auto-captions.");
-      if (!res.ok) throw new Error("Transcription failed (" + res.status + ")");
+      if (!res.ok) { const j = await res.json().catch(() => ({})); throw new Error(j.error || ("Transcription failed (" + res.status + ")")); }
       cues = (await res.json()).cues || [];
     }
     if (!cues.length) throw new Error("No speech found in this video");
@@ -1172,8 +1220,10 @@ async function autoTranscribe(){
     fitProject(); // guarantee <=2 lines even if the server splitter is mid-deploy
     persist();
     renderColumns();
+    prog.done(true);
     toast(DEMO_TRANSCRIBE ? "Demo: auto-captions simulated" : "Auto-captions generated, review and edit", "success");
   } catch (e) {
+    prog.done(false);
     toast(e.message || "Transcription failed", "error");
   } finally {
     btn.disabled = false; btn.innerHTML = label; showBusy(false);
