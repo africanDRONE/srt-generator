@@ -98,7 +98,10 @@ app.post("/transcribe", async (req, res) => {
   if (!url || !/^https?:\/\//.test(url)) return res.status(400).json({ error: "Valid url required" });
 
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), "subcap-"));
+  const t0 = Date.now();
+  const log = (m) => console.log(`[transcribe +${((Date.now() - t0) / 1000).toFixed(1)}s] ${m}`);
   try {
+    log(`start url=${url}`);
     // 1. Pull the best audio for any source.
     const ytdlpArgs = ["-f", "bestaudio/best", "--no-playlist", "-o", path.join(dir, "in.%(ext)s")];
     if (process.env.YTDLP_PROXY) ytdlpArgs.push("--proxy", process.env.YTDLP_PROXY);
@@ -108,6 +111,7 @@ app.post("/transcribe", async (req, res) => {
     const downloaded = (await fs.readdir(dir)).find((f) => f.startsWith("in."));
     if (!downloaded) throw new Error("Could not fetch audio for that link");
     const inPath = path.join(dir, downloaded);
+    log(`downloaded ${downloaded}`);
 
     // 2. Guard duration.
     const probe = await run("ffprobe", ["-v", "error", "-show_entries", "format=duration", "-of", "default=nw=1:nk=1", inPath]).catch(() => null);
@@ -115,30 +119,35 @@ app.post("/transcribe", async (req, res) => {
     if (duration && duration > MAX_MINUTES * 60) {
       return res.status(413).json({ error: `Video exceeds the ${MAX_MINUTES}-minute limit` });
     }
+    log(`duration=${duration}s, extracting audio`);
 
     // 3. Normalize to 16kHz mono mp3 and split into chunks Whisper can swallow.
     await run("ffmpeg", [
-      "-i", inPath, "-ac", "1", "-ar", "16000", "-b:a", "64k",
+      "-i", inPath, "-vn", "-ac", "1", "-ar", "16000", "-b:a", "64k",
       "-f", "segment", "-segment_time", String(CHUNK_SECONDS),
       "-reset_timestamps", "1", path.join(dir, "chunk_%03d.mp3"),
     ], { timeout: 1000 * 60 * 10 });
 
     const chunks = (await fs.readdir(dir)).filter((f) => /^chunk_\d+\.mp3$/.test(f)).sort();
     if (!chunks.length) throw new Error("No audio extracted");
+    log(`chunked into ${chunks.length}, transcribing`);
 
     // 4. Transcribe each chunk, offsetting timestamps by the chunk's position.
     const cues = [];
     for (let i = 0; i < chunks.length; i++) {
       const offset = i * CHUNK_SECONDS;
+      log(`whisper chunk ${i + 1}/${chunks.length}`);
       const { segments, words } = await whisper(path.join(dir, chunks[i]), language);
       for (const c of buildCues(segments, words)) {
         const text = (c.text || "").trim();
         if (text) cues.push({ start: +(c.start + offset).toFixed(3), end: +(c.end + offset).toFixed(3), text });
       }
     }
+    log(`done, ${cues.length} cues`);
 
     res.json({ cues });
   } catch (e) {
+    console.error(`[transcribe +${((Date.now() - t0) / 1000).toFixed(1)}s] ERROR: ${e.message}`);
     res.status(502).json({ error: e.message || "Transcription failed" });
   } finally {
     fs.rm(dir, { recursive: true, force: true }).catch(() => {});
@@ -158,12 +167,21 @@ async function whisper(filePath, language) {
   if (language) fd.append("language", language);
   fd.append("file", new Blob([buf], { type: "audio/mpeg" }), "audio.mp3");
 
-  const r = await fetch(`${WHISPER_BASE}/audio/transcriptions`, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}` },
-    body: fd,
-  });
-  if (!r.ok) throw new Error(`Whisper error ${r.status}`);
+  // Hard timeout so a stalled upstream can't hang the whole request indefinitely.
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 1000 * 60 * 4);
+  let r;
+  try {
+    r = await fetch(`${WHISPER_BASE}/audio/transcriptions`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}` },
+      body: fd,
+      signal: ctrl.signal,
+    });
+  } catch (e) {
+    throw new Error(e.name === "AbortError" ? "Whisper request timed out" : `Whisper request failed: ${e.message}`);
+  } finally { clearTimeout(timer); }
+  if (!r.ok) { const detail = await r.text().catch(() => ""); throw new Error(`Whisper error ${r.status} ${detail.slice(0, 200)}`); }
   const data = await r.json();
   return { segments: data.segments || [], words: data.words || [] };
 }
