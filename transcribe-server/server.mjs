@@ -53,7 +53,7 @@ app.use((req, res, next) => {
   next();
 });
 
-const BUILD = "2026-06-24-segtext-punct"; // bump on deploy to verify what's live
+const BUILD = "2026-06-24-cues-v2"; // bump on deploy to verify what's live
 app.get("/healthz", (_req, res) => res.json({ ok: true, build: BUILD }));
 
 // Resolve the caller's subscription tier from their Supabase access token.
@@ -213,51 +213,87 @@ function wrap2(text) {
   return text.slice(0, split) + "\n" + text.slice(split + 1);
 }
 
-// Turn Whisper output into screen-ready cues. The caption TEXT comes from the
-// segment text (which keeps Whisper's punctuation and capitalization); the word
-// timestamps are used only to TIGHTEN each cue's start/end to the actual spoken
-// words, so captions don't appear during lead-in silence. Long segments are
-// split into <=2-line pieces on word boundaries, dividing the time by length.
+const MIN_DUR = 1.0;   // a cue shouldn't flash for less than ~1s
+const MIN_CHARS = 16;  // merge a cue shorter than this into a neighbour (kills orphan words)
+
+function tokenize(text) { return text.replace(/\s+/g, " ").trim().split(" ").filter(Boolean); }
+function joinTokens(toks) { return toks.join(" ").replace(/\s+([,.!?;:])/g, "$1"); }
+
+// Turn Whisper output into screen-ready cues. Caption TEXT comes from the segment
+// text (keeps punctuation + capitalization); each display word is paired with its
+// word-level timestamp so every cue is timed to the actual speech. Cues break at
+// sentence ends, natural pauses, line-length, and max duration; a final pass
+// merges orphan/too-short cues and enforces a sane minimum on-screen time.
 function buildCues(segments, words) {
   const segs = Array.isArray(segments) ? segments : [];
   const hasWords = Array.isArray(words) && words.length;
-  const out = [];
+  let out = [];
   for (const s of segs) {
     const text = (s.text || "").trim();
     if (!text) continue;
-    let start = s.start, end = s.end;
-    if (hasWords) {
-      const inside = words.filter((w) => w.end > s.start && w.start < s.end);
-      if (inside.length) { start = inside[0].start; end = inside[inside.length - 1].end; }
+    const inside = hasWords ? words.filter((w) => w.end > s.start && w.start < s.end) : [];
+    const disp = tokenize(text);
+    // Best path: display words (with punctuation) line up 1:1 with timed words.
+    if (inside.length && inside.length === disp.length) {
+      out.push(...packTimed(disp.map((tok, i) => ({ tok, start: inside[i].start, end: inside[i].end }))));
+      continue;
     }
+    // Fallback: keep punctuation, approximate timing from the segment span.
+    let start = s.start, end = s.end;
+    if (inside.length) { start = inside[0].start; end = inside[inside.length - 1].end; }
     if (text.length <= MAX_CHARS) { out.push({ start, end, text: wrap2(text) }); continue; }
-    const pieces = splitByLen(text, MAX_CHARS);
-    const total = pieces.reduce((n, p) => n + p.length, 0) || 1;
-    const span = Math.max(0, end - start);
+    const pieces = []; let cur = "";
+    for (const w of disp) { const n = cur ? cur + " " + w : w; if (cur && n.length > MAX_CHARS) { pieces.push(cur); cur = w; } else cur = n; }
+    if (cur) pieces.push(cur);
+    const totalLen = pieces.reduce((n, p) => n + p.length, 0) || 1, span = Math.max(0, end - start);
     let t = start;
-    pieces.forEach((p, i) => {
-      const pe = i === pieces.length - 1 ? end : t + span * (p.length / total);
-      out.push({ start: t, end: pe, text: wrap2(p) });
-      t = pe;
-    });
+    pieces.forEach((p, i) => { const pe = i === pieces.length - 1 ? end : t + span * (p.length / totalLen); out.push({ start: t, end: pe, text: wrap2(p) }); t = pe; });
   }
-  // Fallback if Whisper returned words but no segments (rare).
-  if (!out.length && hasWords) {
-    let cur = [];
-    const flush = () => { if (cur.length) { out.push({ start: cur[0].start, end: cur[cur.length - 1].end, text: wrap2(textOf(cur)) }); cur = []; } };
-    for (const w of words) { if (cur.length && textOf(cur.concat([w])).length > MAX_CHARS) flush(); cur.push(w); }
-    flush();
-  }
-  return out;
+  if (!out.length && hasWords) out = packTimed(words.map((w) => ({ tok: w.word || "", start: w.start, end: w.end })));
+  return cleanup(out);
 }
 
-// Split text into pieces of at most `max` characters, breaking on word boundaries.
-function splitByLen(text, max) {
-  const ws = text.replace(/\s+/g, " ").trim().split(" ");
-  const pieces = []; let cur = "";
-  for (const w of ws) { const next = cur ? cur + " " + w : w; if (cur && next.length > max) { pieces.push(cur); cur = w; } else cur = next; }
-  if (cur) pieces.push(cur);
-  return pieces.length ? pieces : [text];
+// Pack timed tokens into <=2-line cues, breaking at sentence ends, pauses, length, duration.
+function packTimed(toks) {
+  const cues = [];
+  let cur = [];
+  const flush = () => { if (cur.length) { cues.push({ start: cur[0].start, end: cur[cur.length - 1].end, text: wrap2(joinTokens(cur.map((x) => x.tok))) }); cur = []; } };
+  for (const tk of toks) {
+    if (cur.length) {
+      const curText = joinTokens(cur.map((x) => x.tok));
+      const prospective = joinTokens(cur.concat([tk]).map((x) => x.tok));
+      const gap = tk.start - cur[cur.length - 1].end;
+      const dur = tk.end - cur[0].start;
+      const sentenceEnd = /[.!?]["')\]]?$/.test(curText);
+      if (prospective.length > MAX_CHARS || dur > MAX_DUR || gap > GAP || (sentenceEnd && curText.length >= 24)) flush();
+    }
+    cur.push(tk);
+  }
+  flush();
+  return cues;
+}
+
+// Merge orphan/too-short cues into a neighbour and enforce a minimum on-screen time.
+function cleanup(cues) {
+  const merged = [];
+  for (const c of cues) {
+    const prev = merged[merged.length - 1];
+    const flat = c.text.replace(/\n/g, " ");
+    const tooSmall = flat.length < MIN_CHARS || (c.end - c.start) < 0.7;
+    if (prev && tooSmall) {
+      const combined = prev.text.replace(/\n/g, " ") + " " + flat;
+      if (combined.length <= MAX_CHARS && (c.end - prev.start) <= MAX_DUR) { prev.text = wrap2(combined); prev.end = c.end; continue; }
+    }
+    merged.push({ ...c });
+  }
+  for (let i = 0; i < merged.length; i++) {
+    const c = merged[i], next = merged[i + 1];
+    if (c.end - c.start < MIN_DUR) {
+      const want = c.start + MIN_DUR;
+      c.end = next ? Math.max(c.start + 0.3, Math.min(want, next.start - 0.05)) : want;
+    }
+  }
+  return merged;
 }
 
 // Burn subtitles permanently into the video (Pro). Server-side because it needs
