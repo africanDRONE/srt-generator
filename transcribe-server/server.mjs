@@ -130,8 +130,8 @@ app.post("/transcribe", async (req, res) => {
     const cues = [];
     for (let i = 0; i < chunks.length; i++) {
       const offset = i * CHUNK_SECONDS;
-      const segs = await whisper(path.join(dir, chunks[i]), language);
-      for (const s of segs) {
+      const { segments, words } = await whisper(path.join(dir, chunks[i]), language);
+      for (const s of tightenSegments(segments, words)) {
         const text = (s.text || "").trim();
         if (text) cues.push({ start: +(s.start + offset).toFixed(3), end: +(s.end + offset).toFixed(3), text });
       }
@@ -149,7 +149,12 @@ async function whisper(filePath, language) {
   const buf = await fs.readFile(filePath);
   const fd = new FormData();
   fd.append("model", WHISPER_MODEL);
-  fd.append("response_format", "verbose_json"); // includes per-segment timestamps
+  fd.append("response_format", "verbose_json");
+  // Ask for word-level timestamps in addition to segments. Segment start times
+  // sit in the silence before speech (captions appear too early); word timings
+  // let us snap each caption to the actual first/last spoken word.
+  fd.append("timestamp_granularities[]", "segment");
+  fd.append("timestamp_granularities[]", "word");
   if (language) fd.append("language", language);
   fd.append("file", new Blob([buf], { type: "audio/mpeg" }), "audio.mp3");
 
@@ -160,7 +165,19 @@ async function whisper(filePath, language) {
   });
   if (!r.ok) throw new Error(`Whisper error ${r.status}`);
   const data = await r.json();
-  return data.segments || [];
+  return { segments: data.segments || [], words: data.words || [] };
+}
+
+// Snap each segment's start/end to the real span of the words it contains, so a
+// caption appears when the person starts speaking, not during the lead-in
+// silence. Falls back to the raw segment timing if no words overlap it.
+function tightenSegments(segments, words) {
+  if (!Array.isArray(words) || !words.length) return segments;
+  return segments.map((s) => {
+    const inside = words.filter((w) => w.end > s.start && w.start < s.end);
+    if (!inside.length) return s;
+    return { ...s, start: inside[0].start, end: inside[inside.length - 1].end };
+  });
 }
 
 // Burn subtitles permanently into the video (Pro). Server-side because it needs
