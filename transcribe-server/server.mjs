@@ -53,7 +53,8 @@ app.use((req, res, next) => {
   next();
 });
 
-app.get("/healthz", (_req, res) => res.json({ ok: true }));
+const BUILD = "2026-06-24-segtext-punct"; // bump on deploy to verify what's live
+app.get("/healthz", (_req, res) => res.json({ ok: true, build: BUILD }));
 
 // Resolve the caller's subscription tier from their Supabase access token.
 // Dev fallback: if SUPABASE_URL isn't set, use the simple PRO_TOKEN shared secret
