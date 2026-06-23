@@ -71,7 +71,9 @@ async function tierFor(req) {
   if (!token) return "free";
   try {
     const ures = await fetch(`${process.env.SUPABASE_URL}/auth/v1/user`, {
-      headers: { apikey: process.env.SUPABASE_ANON_KEY, Authorization: `Bearer ${token}` },
+      // Fall back to the service-role key as apikey so this works even if
+      // SUPABASE_ANON_KEY isn't set on this service.
+      headers: { apikey: process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${token}` },
     });
     if (!ures.ok) return "free";
     const user = await ures.json();
