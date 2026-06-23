@@ -573,9 +573,71 @@ function renderRecent(){
   }).join("");
   el.classList.remove("hidden");
 }
+/* Caption line discipline (Netflix-style): every cue is at most two lines of
+   ~42 characters. This mirrors the server-side splitter so OLD projects, made
+   before that existed, get tidied the moment they're reopened, instead of
+   wrapping to three or more lines on the video. When a long cue is split into
+   several, its translation lines are split in lockstep so the columns stay
+   aligned row-for-row. */
+const CAP_LINE = 42, CAP_MAX = CAP_LINE * 2;
+function wrapTwo(text){
+  text = (text || "").replace(/\s+/g, " ").trim();
+  if (text.length <= CAP_LINE) return text;
+  const mid = Math.floor(text.length / 2);
+  const left = text.lastIndexOf(" ", mid), right = text.indexOf(" ", mid);
+  let s = (left > 0 && (mid - left <= right - mid || right < 0)) ? left : right;
+  if (s <= 0) s = left > 0 ? left : right;
+  return s > 0 ? text.slice(0, s) + "\n" + text.slice(s + 1) : text;
+}
+// Break text into pieces of at most CAP_MAX characters, on word boundaries.
+function pieceCount(text){
+  const words = (text || "").split(/\s+/).filter(Boolean);
+  const pieces = []; let cur = "";
+  for (const w of words){
+    const next = cur ? cur + " " + w : w;
+    if (cur && next.length > CAP_MAX){ pieces.push(cur); cur = w; } else cur = next;
+  }
+  if (cur) pieces.push(cur);
+  return pieces.length ? pieces : [""];
+}
+// Split a translation line into exactly n word-balanced chunks to match a source split.
+function splitInto(text, n){
+  if (n <= 1) return [text || ""];
+  const words = (text || "").replace(/\s+/g, " ").trim().split(" ").filter(Boolean);
+  const per = Math.ceil(words.length / n) || 1, out = [];
+  for (let i = 0; i < n; i++) out.push(words.slice(i * per, (i + 1) * per).join(" "));
+  return out;
+}
+function needsFit(){
+  return captions.some(c => (c.line1 || "").length > CAP_LINE || (c.line2 || "").length > CAP_LINE);
+}
+function fitProject(){
+  if (!needsFit()) return false;
+  const codes = Object.keys(translations);
+  const newCaps = [], newTr = {};
+  codes.forEach(code => { newTr[code] = { ...translations[code], lines: [] }; });
+  captions.forEach((c, i) => {
+    const combined = [c.line1, c.line2].filter(Boolean).join(" ").replace(/\s+/g, " ").trim();
+    const pieces = pieceCount(combined);
+    const span = Math.max(0, (c.end || 0) - (c.start || 0));
+    const totalChars = pieces.reduce((n, p) => n + p.length, 0) || 1;
+    const trChunks = {}; codes.forEach(code => { trChunks[code] = splitInto(translations[code].lines[i] || "", pieces.length); });
+    let t = c.start || 0;
+    pieces.forEach((p, pi) => {
+      const dur = pieces.length > 1 ? span * (p.length / totalChars) : span;
+      const start = t, end = pi === pieces.length - 1 ? (c.end || start) : t + dur; t = end;
+      const w = wrapTwo(p).split("\n");
+      newCaps.push({ start: +(+start).toFixed(3), end: +(+end).toFixed(3), line1: w[0] || "", line2: w[1] || "" });
+      codes.forEach(code => newTr[code].lines.push(wrapTwo(trChunks[code][pi] || "")));
+    });
+  });
+  captions = newCaps; if (codes.length) translations = newTr;
+  return true;
+}
 function loadState(key){
   try { const o = JSON.parse(localStorage.getItem("subcap-" + key)) || {}; captions = o.c || []; translations = o.t || {}; }
   catch(e){ captions = []; translations = {}; }
+  if (fitProject()) persist(); // tidy pre-existing long captions to <=2 lines on open
 }
 
 /* =================== EDITOR FLOW =================== */
@@ -858,6 +920,7 @@ async function autoTranscribe(){
     captions = cues.map(c => { const p = (c.text || "").split("\n"); return { start: c.start, end: c.end, line1: p[0] || "", line2: p[1] || "" }; });
     captions.sort((a, b) => a.start - b.start);
     translations = {}; overlayTrack = "source"; // a fresh transcript invalidates old translation columns
+    fitProject(); // guarantee <=2 lines even if the server splitter is mid-deploy
     persist();
     renderColumns();
     toast(DEMO_TRANSCRIBE ? "Demo: auto-captions simulated" : "Auto-captions generated, review and edit", "success");
