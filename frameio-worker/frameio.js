@@ -46,10 +46,15 @@ export default {
       if (url.pathname === "/health") return json({ ok: true, configured }, 200, cors);
       if (!configured) return json({ error: "Frame.io connector is not configured on the server yet." }, 501, cors);
 
-      if (url.pathname === "/start") return start(url, env, self);
-      if (url.pathname === "/callback") return callback(url, env, self);
-      if (url.pathname === "/resolve") return resolve(request, url, env, cors);
-      if (url.pathname === "/disconnect" && request.method === "POST") return disconnect(request, env, cors, origin);
+      if (url.pathname === "/reset") {
+        const headers = new Headers({ "Content-Type": "text/html" });
+        headers.append("Set-Cookie", `${COOKIE}=; HttpOnly; Secure; SameSite=None; Path=/; Max-Age=0`);
+        return new Response("<h2>Frame.io connection reset.</h2><p>You can close this tab and reconnect from the app.</p>", { status: 200, headers });
+      }
+      if (url.pathname === "/start") return await start(url, env, self);
+      if (url.pathname === "/callback") return await callback(url, env, self);
+      if (url.pathname === "/resolve") return await resolve(request, url, env, cors);
+      if (url.pathname === "/disconnect" && request.method === "POST") return await disconnect(request, env, cors, origin);
       return json({ error: "Not found" }, 404, cors);
     } catch (e) {
       return json({ error: e.message || "Server error" }, 500, cors);
@@ -68,23 +73,33 @@ async function start(url, env, self) {
   a.searchParams.set("scope", SCOPES);
   a.searchParams.set("response_type", "code");
   a.searchParams.set("state", state);
+  // Force the account/login screen instead of silently single-sign-on-ing the
+  // currently-logged-in Adobe account, so the user can pick the one tied to Frame.io.
+  a.searchParams.set("prompt", "login");
   return Response.redirect(a.toString(), 302);
 }
 
 // Step 2: exchange the code for tokens, store them under a fresh session id, set cookie.
 async function callback(url, env, self) {
+  // Surface Adobe's own error instead of silently flashing past it.
+  const adobeErr = url.searchParams.get("error");
+  if (adobeErr) {
+    const desc = url.searchParams.get("error_description") || "";
+    return htmlError("Adobe sign-in error", adobeErr + (desc ? "\n\n" + desc : ""));
+  }
   const code = url.searchParams.get("code");
   const state = url.searchParams.get("state");
-  if (!code || !state) return new Response("Missing code/state", { status: 400 });
+  if (!code || !state) return htmlError("Sign-in incomplete", "Adobe didn't return an authorization code. This usually means the redirect URI or scopes on the Adobe credential don't match.");
   const ret = await env.TOKENS.get("state:" + state);
-  if (!ret) return new Response("Expired or invalid state", { status: 400 });
+  if (!ret) return htmlError("Session expired", "The sign-in attempt expired or was already used. Start over from the app.");
   await env.TOKENS.delete("state:" + state);
 
-  const tok = await exchange(env, {
-    grant_type: "authorization_code",
-    code,
-    redirect_uri: self + "/callback",
-  });
+  let tok;
+  try {
+    tok = await exchange(env, { grant_type: "authorization_code", code, redirect_uri: self + "/callback" });
+  } catch (e) {
+    return htmlError("Token exchange failed", e.message || "Adobe rejected the token request.");
+  }
   const session = crypto.randomUUID();
   await saveTokens(env, session, tok);
 
@@ -100,20 +115,48 @@ async function resolve(request, url, env, cors) {
   const access = await freshAccessToken(env, session);
   if (!access) return json({ error: "Not connected" }, 401, cors);
 
+  const debug = url.searchParams.get("debug");
   const link = url.searchParams.get("link") || "";
-  const ids = parseFrameioLink(link);
-  if (!ids.fileId) return json({ error: "Couldn't find a Frame.io file id in that link. Open the asset and copy its link, or paste the file's share link." }, 422, cors);
+  let ids = parseFrameioLink(link);
+  let expanded = link;
+  // Short share links (f.io/XXXX) carry no id; follow the redirect to the full
+  // share URL, which contains /view/<file_id>, then parse that.
+  if (!ids.fileId) {
+    expanded = await expandLink(link);
+    if (expanded && expanded !== link) ids = parseFrameioLink(expanded);
+  }
 
   // Frame.io V4 calls are scoped to an account. Use the id from the link if present,
-  // else fall back to the user's first account.
-  let accountId = ids.accountId;
-  if (!accountId) {
-    const accts = await fioGet(`${FIO_API}/accounts`, access);
-    accountId = (accts && accts.data && accts.data[0] && accts.data[0].id) || null;
+  // else fall back to the user's accounts.
+  let accountsRaw = null;
+  if (!ids.accountId) {
+    accountsRaw = await fioGetRaw(`${FIO_API}/accounts`, access);
+    ids.accountId = accountsRaw.body?.data?.[0]?.id || accountsRaw.body?.[0]?.id || null;
   }
-  if (!accountId) return json({ error: "No Frame.io account found for this user." }, 422, cors);
 
-  const file = await fioGet(`${FIO_API}/accounts/${accountId}/files/${ids.fileId}?include=media_links.original`, access);
+  // Try to resolve the file. A share asset may live under a different account than
+  // the first one, so on 404 we try each account the user has.
+  let fileRaw = null;
+  const tryAccounts = [];
+  if (ids.accountId) tryAccounts.push(ids.accountId);
+  const all = accountsRaw?.body?.data || accountsRaw?.body || [];
+  for (const a of all) { if (a?.id && !tryAccounts.includes(a.id)) tryAccounts.push(a.id); }
+  for (const acct of tryAccounts) {
+    if (!ids.fileId) break;
+    fileRaw = await fioGetRaw(`${FIO_API}/accounts/${acct}/files/${ids.fileId}?include=media_links.original`, access);
+    fileRaw.accountTried = acct;
+    if (fileRaw.status === 200) { ids.accountId = acct; break; }
+  }
+
+  if (debug) {
+    return json({ debug: true, expanded, accountId: ids.accountId, fileId: ids.fileId,
+      accountsStatus: accountsRaw?.status, accounts: all.map(a => ({ id: a.id, name: a.name || a.display_name })),
+      fileStatus: fileRaw?.status, fileBody: fileRaw?.body }, 200, cors);
+  }
+
+  if (!ids.fileId) return json({ error: "Couldn't find a Frame.io file id in that link." }, 422, cors);
+  if (!fileRaw || fileRaw.status !== 200) return json({ error: "Frame.io couldn't find that file under your account (status " + (fileRaw?.status || "?") + "). The asset may be in a different workspace, or shares may need a different lookup." }, 422, cors);
+  const file = fileRaw.body;
   const dl =
     file?.data?.media_links?.original?.download_url ||
     file?.data?.media_links?.original?.url ||
@@ -136,6 +179,14 @@ async function disconnect(request, env, cors, origin) {
 // NOTE: Frame.io V4 web URL shapes vary; this handles the common id-bearing forms
 // and any embedded UUID. Verify against a real link from your account; adjust the
 // patterns here if your share links use a different shape.
+// Follow a short/share link's redirects to its final URL (e.g. f.io/XXXX ->
+// next.frame.io/share/<share>/view/<file_id>) so we can read the id out of it.
+async function expandLink(link) {
+  try {
+    const r = await fetch(link, { method: "GET", redirect: "follow", headers: { "User-Agent": "SubCaptions/1.0" } });
+    return r.url || link;
+  } catch { return link; }
+}
 function parseFrameioLink(link) {
   const out = { accountId: null, fileId: null };
   if (!link) return out;
@@ -162,8 +213,22 @@ async function exchange(env, params) {
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: body.toString(),
   });
-  if (!r.ok) throw new Error("Adobe IMS token exchange failed (" + r.status + ")");
+  if (!r.ok) {
+    const detail = await r.text().catch(() => "");
+    throw new Error("Adobe IMS token exchange failed (" + r.status + "). " + detail.slice(0, 300));
+  }
   return r.json();
+}
+
+function htmlError(title, detail) {
+  const body = `<div style="font:15px/1.5 system-ui;max-width:560px;margin:60px auto;padding:0 20px">
+    <h2 style="margin:0 0 8px">${escapeHtml(title)}</h2>
+    <pre style="white-space:pre-wrap;background:#f6f6f8;border:1px solid #e3e3ea;border-radius:8px;padding:12px;color:#b91c1c">${escapeHtml(detail)}</pre>
+    <p>Close this tab and try again from the app once it's fixed.</p></div>`;
+  return new Response(body, { status: 400, headers: { "Content-Type": "text/html" } });
+}
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 }
 
 async function saveTokens(env, session, tok) {
@@ -188,6 +253,13 @@ async function freshAccessToken(env, session) {
   return tok.access_token;
 }
 
+// Like fioGet but never throws: returns { status, body } so callers can branch.
+async function fioGetRaw(u, access) {
+  const r = await fetch(u, { headers: { Authorization: "Bearer " + access, Accept: "application/json" } });
+  let body = null;
+  try { body = await r.json(); } catch { body = await r.text().catch(() => null); }
+  return { status: r.status, body };
+}
 async function fioGet(u, access) {
   const r = await fetch(u, { headers: { Authorization: "Bearer " + access, Accept: "application/json" } });
   if (r.status === 401) throw new Error("Frame.io rejected the token (re-connect needed).");
