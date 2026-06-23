@@ -574,8 +574,22 @@ async function mountFrameio(source){
     host.innerHTML = '<div class="fio-status">' + escapeHtml(e.message || "Couldn’t load that Frame.io link.") + '</div>';
   }
 }
+// Wait until the auth library has settled (token loaded or confirmed missing).
+// A freshly-opened tab calls mountR2 before auth.js finishes restoring the
+// session, so we'd otherwise fetch /playback with no Authorization header.
+function awaitAuthToken(timeoutMs){
+  if (window.SubAuth && window.SubAuth.token) return Promise.resolve(window.SubAuth.token);
+  return new Promise(res => {
+    let done = false;
+    const finish = t => { if (done) return; done = true; document.removeEventListener("subauth", onAuth); res(t || null); };
+    const onAuth = e => { if (e.detail && e.detail.token) finish(e.detail.token); };
+    document.addEventListener("subauth", onAuth);
+    setTimeout(() => finish(window.SubAuth && window.SubAuth.token), timeoutMs || 2500);
+  });
+}
 // Ask the upload Worker for a fresh signed playback URL for an uploaded R2 file.
 async function resolveR2Media(r2Key){
+  await awaitAuthToken(2500);
   const r = await fetch(UPLOAD_BASE + "/playback", { method: "POST", headers: authHeaders({ "Content-Type": "application/json" }), body: JSON.stringify({ key: r2Key }) });
   if (r.status === 402) { const e = new Error("Uploads need a Solo plan."); e.code = 402; throw e; }
   if (r.status === 401) { const e = new Error("Sign in to access your upload."); e.code = 401; throw e; }
