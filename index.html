@@ -60,10 +60,13 @@
   .try-sample{background:none;border:none;color:var(--brand1);cursor:pointer;font:inherit;font-weight:600;font-size:13.5px}.try-sample:hover{text-decoration:underline}
   .recent{max-width:560px;margin:18px auto 0}
   .recent-title{font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px;text-align:center}
-  .recent-item{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:9px 13px;margin-bottom:7px;cursor:pointer;font-family:inherit}
+  .recent-item{display:flex;align-items:center;gap:12px;width:100%;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:8px 12px;margin-bottom:7px;cursor:pointer;font-family:inherit;text-align:left}
   .recent-item:hover{border-color:var(--brand1);box-shadow:var(--shadow-sm)}
+  .recent-thumb{flex:none;width:60px;height:34px;border-radius:6px;background:var(--surface-2);display:flex;align-items:center;justify-content:center;overflow:hidden;font-size:16px}
+  .recent-thumb img{width:100%;height:100%;object-fit:cover}
+  .recent-meta{display:flex;flex-direction:column;min-width:0;flex:1}
   .recent-url{font-size:13px;color:var(--text-soft);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .recent-count{font-size:12px;color:var(--brand2);font-weight:600;white-space:nowrap}
+  .recent-count{font-size:11.5px;color:var(--brand2);font-weight:600;white-space:nowrap}
 
   .hero-visual{max-width:760px;margin:40px auto 0;position:relative}
   .mock-video{position:relative;aspect-ratio:16/9;border-radius:var(--radius-lg);background:linear-gradient(150deg,#1e1b3a,#2d2150 55%,#3b1d44);box-shadow:var(--shadow-lg);overflow:hidden;border:1px solid rgba(255,255,255,.1)}
@@ -84,10 +87,10 @@
   .left-col{display:flex;flex-direction:column;gap:16px;min-width:0}
   .right-col{display:flex;flex-direction:column;gap:12px;min-width:0}
   .panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow-sm)}
-  #player-wrap{position:relative;width:100%;aspect-ratio:16/9;background:#0b0b14;border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow)}
+  #player-wrap{position:relative;width:100%;aspect-ratio:16/9;background:#0b0b14;border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);container-type:inline-size}
   #player-host{width:100%;height:100%}
   #player-host iframe,#player-host video,#player-host>div{width:100%;height:100%;border:0;display:block;background:#000}
-  .subtitle-overlay{position:absolute;bottom:10%;left:6%;right:6%;text-align:center;color:#fff;font-size:clamp(16px,2.7vw,30px);font-weight:700;line-height:1.3;white-space:pre-line;pointer-events:none;z-index:2;text-shadow:-2px -2px 0 #000,2px -2px 0 #000,-2px 2px 0 #000,2px 2px 0 #000,0 0 12px rgba(0,0,0,.9)}
+  .subtitle-overlay{position:absolute;bottom:7%;left:5%;right:5%;text-align:center;color:#fff;font-size:clamp(13px,3.2cqw,30px);font-weight:500;line-height:1.3;white-space:pre-line;pointer-events:none;z-index:2;text-shadow:.055em .07em .06em rgba(0,0,0,.95),0 0 .18em rgba(0,0,0,.7)}
   .transport{display:flex;gap:10px}
   .transport .btn{padding:10px 14px;font-size:14px;display:flex;flex-direction:row;align-items:center;justify-content:center;gap:5px;border-radius:10px}
   .scrub{background:var(--surface);border:1px solid var(--border-strong);color:var(--text);flex:0 0 84px}.scrub:hover{background:var(--surface-2)}
@@ -126,9 +129,7 @@
   .columns-head h3{font-family:var(--font-display);font-size:17px}
   .columns-head .hint{font-size:12.5px;color:var(--muted)}
   .columns{display:flex;gap:14px;overflow-x:auto;padding:4px 4px 12px;scroll-behavior:smooth}
-  .columns.fit{overflow-x:visible}
-  .columns.fit .lang-col{flex:1 1 0;min-width:0}
-  .lang-col{flex:0 0 300px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow-sm);display:flex;flex-direction:column;max-height:520px;overflow:hidden}
+  .lang-col{flex:0 0 calc(50% - 7px);min-width:0;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow-sm);display:flex;flex-direction:column;max-height:520px;overflow:hidden}
   .lang-col.source{border-color:var(--border-strong)}
   .col-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:12px 14px;border-bottom:1px solid var(--border);background:var(--surface)}
   .col-title{font-weight:700;font-size:14px;display:flex;align-items:center;gap:7px}
@@ -171,6 +172,9 @@
   .scc-msg{font-size:15px;color:var(--text);margin-bottom:18px;line-height:1.45}
   .scc-actions{display:flex;gap:10px}.scc-actions .btn{flex:1}
   .scc-cancel{background:var(--surface-2);border:1px solid var(--border-strong);color:var(--text-soft)}
+  #topbar{position:fixed;top:0;height:3px;width:28%;background:var(--grad);z-index:400;border-radius:0 3px 3px 0;display:none}
+  #topbar.show{display:block;animation:topbar-slide 1.1s ease-in-out infinite}
+  @keyframes topbar-slide{0%{left:-28%}100%{left:100%}}
   .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(8px);background:var(--text);color:#fff;padding:12px 22px;border-radius:12px;font-size:14px;font-weight:500;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:200;box-shadow:var(--shadow)}
   .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}.toast.error{background:var(--error)}.toast.success{background:var(--success)}
   .demo-flag{display:none;max-width:640px;margin:14px auto 0;font-size:12.5px;color:#92400e;background:#fef3c7;border:1px solid #fcd34d;border-radius:10px;padding:9px 14px;text-align:center}.demo-flag.show{display:block}
@@ -504,8 +508,11 @@ function renderRecent(){
   }
   if (!items.length) { el.classList.add("hidden"); return; }
   items.sort((a,b)=>b.ts-a.ts);
-  el.innerHTML = '<div class="recent-title">Pick up where you left off</div>' + items.slice(0,5).map(it =>
-    `<button class="recent-item" data-resume="${encodeURIComponent(it.url)}"><span class="recent-url">${escapeHtml(it.url)}</span><span class="recent-count">${it.count} caption${it.count===1?"":"s"}</span></button>`).join("");
+  el.innerHTML = '<div class="recent-title">Pick up where you left off</div>' + items.slice(0,5).map(it => {
+    const m = (it.url || "").match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([\w-]{11})/);
+    const thumb = m ? `<img src="https://img.youtube.com/vi/${m[1]}/mqdefault.jpg" alt="" loading="lazy">` : "🎬";
+    return `<button class="recent-item" data-resume="${encodeURIComponent(it.url)}"><span class="recent-thumb">${thumb}</span><span class="recent-meta"><span class="recent-url">${escapeHtml(it.url)}</span><span class="recent-count">${it.count} caption${it.count===1?"":"s"}</span></span></button>`;
+  }).join("");
   el.classList.remove("hidden");
 }
 function loadState(key){
@@ -645,8 +652,6 @@ function renderColumns(loadingCode){
     html += colHtml(loadingCode, meta.name, meta.flag, false, [], true);
   }
   document.getElementById("columns").innerHTML = html;
-  const total = 1 + Object.keys(translations).length + (loadingCode && !translations[loadingCode] ? 1 : 0);
-  document.getElementById("columns").classList.toggle("fit", total <= 3);
 }
 
 /* =================== TRANSLATE =================== */
@@ -671,7 +676,7 @@ async function translateCaptions(){
   }
   const meta = LANG_BY_CODE[code];
   const btn = document.getElementById("translate-btn");
-  btn.disabled = true; btn.textContent = "…";
+  btn.disabled = true; btn.textContent = "…"; showBusy(true);
   renderColumns(code);
   const colsEl = document.getElementById("columns");
   colsEl.scrollLeft = colsEl.scrollWidth;
@@ -687,13 +692,20 @@ async function translateCaptions(){
   } catch(e) {
     renderColumns();
     toast(e.message || "Translation failed", "error");
-  } finally { btn.disabled = false; btn.textContent = "Translate"; }
+  } finally { btn.disabled = false; btn.textContent = "Translate"; showBusy(false); }
 }
 
 /* =================== AUTO-CAPTION (Whisper, Pro) =================== */
 // Transcription needs the audio. The browser can't reach the audio inside a
 // YouTube/Vimeo iframe, so this calls a backend (see transcribe-server/) that
 // pulls the audio for ANY source and runs Whisper, returning timed cues.
+// Indeterminate top loading bar, shown during long operations (transcribe,
+// translate, burn) so the page doesn't look frozen.
+function showBusy(on){
+  let b = document.getElementById("topbar");
+  if (!b) { b = document.createElement("div"); b.id = "topbar"; document.body.appendChild(b); }
+  b.classList.toggle("show", !!on);
+}
 // Styled confirm dialog (replaces the native browser confirm box).
 function confirmModal(msg, okLabel){
   return new Promise(res => {
@@ -735,7 +747,7 @@ async function autoTranscribe(){
   if (captions.length && !(await confirmModal("Replace your current captions with auto-generated ones?", "Replace"))) return;
   const btn = document.getElementById("auto-btn");
   const label = btn.innerHTML;
-  btn.disabled = true; btn.textContent = "Transcribing…";
+  btn.disabled = true; btn.textContent = "Transcribing…"; showBusy(true);
   try {
     let cues;
     if (DEMO_TRANSCRIBE) {
@@ -766,7 +778,7 @@ async function autoTranscribe(){
   } catch (e) {
     toast(e.message || "Transcription failed", "error");
   } finally {
-    btn.disabled = false; btn.innerHTML = label;
+    btn.disabled = false; btn.innerHTML = label; showBusy(false);
   }
 }
 
@@ -779,7 +791,7 @@ async function burnVideo(){
   const srt = buildSubs(false, captions.map(c => [c.line1, c.line2].filter(Boolean).join("\n")));
   const btn = document.getElementById("burn-btn");
   const label = btn.innerHTML;
-  btn.disabled = true; btn.textContent = "Rendering… (this can take a while)";
+  btn.disabled = true; btn.textContent = "Rendering… (this can take a while)"; showBusy(true);
   try {
     if (DEMO_TRANSCRIBE) {
       await new Promise(r => setTimeout(r, 900));
@@ -801,7 +813,7 @@ async function burnVideo(){
   } catch (e) {
     toast(e.message || "Render failed", "error");
   } finally {
-    btn.disabled = false; btn.innerHTML = label;
+    btn.disabled = false; btn.innerHTML = label; showBusy(false);
   }
 }
 
