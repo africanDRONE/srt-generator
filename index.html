@@ -680,15 +680,25 @@ function startTimeLoop(){
     if (!videoDuration) checkDuration(); // YouTube duration is sometimes 0 until playback starts
     const t = getCurrentTime();
     const a = captions.find(c => t >= c.start && t <= c.end);
-    const activeIdx = a ? captions.indexOf(a) : -1;
-    let overlayText = "";
-    if (a) {
-      if (overlayTrack !== "source" && translations[overlayTrack]) overlayText = translations[overlayTrack].lines[activeIdx] || "";
-      else overlayText = [a.line1, a.line2].filter(Boolean).join("\n");
-    }
-    document.getElementById("overlay").textContent = overlayText;
-    document.querySelectorAll(".cue-cell").forEach(el => el.classList.toggle("active", +el.dataset.i === activeIdx));
+    renderActive(a ? captions.indexOf(a) : -1);
   }, 90);
+}
+// Paint the overlay text and the active-row highlight for a caption index.
+function renderActive(idx){
+  const a = captions[idx];
+  let overlayText = "";
+  if (a) {
+    if (overlayTrack !== "source" && translations[overlayTrack]) overlayText = translations[overlayTrack].lines[idx] || "";
+    else overlayText = [a.line1, a.line2].filter(Boolean).join("\n");
+  }
+  document.getElementById("overlay").textContent = overlayText;
+  document.querySelectorAll(".cue-cell").forEach(el => el.classList.toggle("active", +el.dataset.i === idx));
+}
+// Click-to-activate: jump the video there and highlight it immediately, even if paused.
+function setActive(i){
+  if (!captions[i]) return;
+  seekTo(i);
+  renderActive(i);
 }
 
 function markStart(){ currentStart = getCurrentTime(); document.getElementById("startDisplay").textContent = formatTime(currentStart); }
@@ -787,6 +797,13 @@ function alignRows(){
   const cells = [...document.querySelectorAll("#columns .cue-cell")];
   document.querySelectorAll("#columns .cue-tx").forEach(autosize);
   cells.forEach(c => { c.style.minHeight = ""; });
+  // Equalize the column headers first; a difference there offsets every row below.
+  const heads = [...document.querySelectorAll("#columns .col-head")];
+  heads.forEach(h => { h.style.minHeight = ""; });
+  if (heads.length >= 2) {
+    const hm = heads.reduce((m, h) => Math.max(m, h.offsetHeight), 0);
+    heads.forEach(h => { h.style.minHeight = hm + "px"; });
+  }
   if (Object.keys(translations).length < 1) return; // only the source column, nothing to align to
   const byIdx = {};
   cells.forEach(c => { (byIdx[c.dataset.i] = byIdx[c.dataset.i] || []).push(c); });
@@ -1037,10 +1054,10 @@ function toast(msg, type){
     const rm = e.target.closest("[data-rm]"); if (rm) { if (overlayTrack === rm.dataset.rm) overlayTrack = "source"; delete translations[rm.dataset.rm]; persist(); renderColumns(); return; }
     const ed = e.target.closest("[data-edit]"); if (ed) { editCap(+ed.dataset.edit); return; }
     const de = e.target.closest("[data-del]"); if (de) { delCap(+de.dataset.del); return; }
-    const sk = e.target.closest("[data-seek]"); if (sk) { seekTo(+sk.dataset.seek); return; }
-    // Click anywhere on a caption row (except the editable text / its controls) to jump the video there.
+    const sk = e.target.closest("[data-seek]"); if (sk) { setActive(+sk.dataset.seek); return; }
+    // Click anywhere on a caption row (including its text) to make it the active caption and jump the video there.
     const cell = e.target.closest(".cue-cell");
-    if (cell && e.target.tagName !== "TEXTAREA" && !e.target.closest("button")) { seekTo(+cell.dataset.i); }
+    if (cell && !e.target.closest("button")) { setActive(+cell.dataset.i); }
   });
   cols.addEventListener("input", e => {
     const tx = e.target.closest(".cue-tx"); if (!tx) return;
