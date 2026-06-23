@@ -58,6 +58,17 @@
   .sources{margin-top:18px;font-size:12.5px;color:var(--muted)}
   .sources b{color:var(--text-soft);font-weight:600}
   .try-sample{background:none;border:none;color:var(--brand1);cursor:pointer;font:inherit;font-weight:600;font-size:13.5px}.try-sample:hover{text-decoration:underline}
+  .upload-zone{max-width:660px;margin:14px auto 6px;padding:18px;border:2px dashed var(--border-strong);border-radius:14px;background:#fff;display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer;transition:.15s;text-align:center}
+  .upload-zone:hover,.upload-zone:focus,.upload-zone.drag{border-color:var(--brand1);background:var(--grad-soft);outline:none}
+  .upload-zone.disabled{opacity:.55;cursor:not-allowed}
+  .upload-or{font-size:12px;color:var(--muted);letter-spacing:.04em;text-transform:uppercase;font-weight:600}
+  .upload-cta{font-size:15px;color:var(--text);font-weight:600;display:flex;align-items:center;gap:8px}
+  .upload-cta .pro-tag{font-size:11px}
+  .upload-hint{font-size:12.5px;color:var(--muted)}
+  .upload-progress{max-width:660px;margin:8px auto 6px}
+  .upload-progress .bar{height:6px;background:var(--surface-2);border-radius:99px;overflow:hidden}
+  .upload-progress .fill{height:100%;width:0%;background:var(--grad);transition:width .15s}
+  .upload-progress .label{margin-top:6px;font-size:12.5px;color:var(--text-soft);text-align:center}
   .source-msg{max-width:640px;margin:0 auto 14px;padding:11px 15px;border-radius:10px;font-size:13.5px;line-height:1.45;text-align:left}
   .source-msg.warn{background:#fff7ed;border:1px solid #fed7aa;color:#9a3412}
   .source-msg.error{background:#fef2f2;border:1px solid #fecaca;color:#991b1b}
@@ -221,6 +232,13 @@
       <input type="text" id="yt-url" placeholder="Paste a video link to start…" autocomplete="off" />
       <button class="btn btn-grad" id="start-btn">Start captioning →</button>
     </div>
+    <div id="upload-zone" class="upload-zone" tabindex="0" role="button" aria-label="Upload a video file">
+      <input type="file" id="upload-input" accept="video/mp4,video/quicktime,video/webm,video/x-matroska,video/x-msvideo,.mp4,.m4v,.mov,.webm,.mkv,.avi" hidden />
+      <span class="upload-or">or</span>
+      <span class="upload-cta">📁 Drop a video here, or click to upload <span class="pro-tag">Solo</span></span>
+      <span class="upload-hint">Up to 2 GB · .mp4, .mov, .webm, .mkv, .avi · auto-deleted after 7 days</span>
+    </div>
+    <div id="upload-progress" class="upload-progress" hidden><div class="bar"><div class="fill"></div></div><div class="label">Uploading… 0%</div></div>
     <div id="source-msg" class="source-msg" hidden></div>
     <div class="sources">Captioning works with <b>YouTube</b>, <b>Vimeo</b>, <b>Frame.io</b>, <b>Rushes.cc</b>, <b>Dropbox</b>, <b>Google Drive</b>, and direct video files. For <b>auto-transcribe</b>, the most reliable sources are a <b>direct/S3 link</b>, <b>Dropbox</b>, or <b>Frame.io</b> (YouTube/Vimeo can't be auto-transcribed).</div>
     <div class="hero-foot">
@@ -348,6 +366,7 @@ const DEMO = !API_BASE;
 const TRANSCRIBE_BASE = "https://subcaptions-transcribe.onrender.com";  // Whisper transcription + burn-in service
 const DEMO_TRANSCRIBE = !TRANSCRIBE_BASE;
 const FRAMEIO_BASE = "https://subcaptions-frameio.johnnie-miller.workers.dev";  // Frame.io OAuth + asset-resolve Worker
+const UPLOAD_BASE = "https://subcaptions-upload.johnnie-miller.workers.dev";    // R2 presigned-upload Worker
 const MAX_LINE = 42;
 const SAMPLE_VIDEO = "oNhE89V2S6o";
 const FREE_MAX_MINUTES = 45;         // free plan video-length cap
@@ -366,7 +385,8 @@ let translations = {};               // { code: { name, flag, lines:[text per ca
 let currentStart = null, currentEnd = null, editingIdx = null;
 let currentKey = null;               // storage + filename key for the loaded source
 let currentSourceUrl = "";           // raw pasted URL (kept for persistence/resume)
-let currentMediaUrl = "";            // direct fetchable URL for transcription; differs from currentSourceUrl for Frame.io (signed URL)
+let currentMediaUrl = "";            // direct fetchable URL for transcription; differs from currentSourceUrl for Frame.io/R2 (signed URL)
+let currentR2Key = "";               // R2 object key for uploaded sources, so we can re-sign / delete
 let videoDuration = 0, lengthLocked = false;
 let overlayTrack = "source";          // which column ("source" or a lang code) shows on the video
 
@@ -398,6 +418,9 @@ function resolveSource(raw){
 
   let m = url.match(/vimeo\.com\/(?:video\/|channels\/[^/]+\/|groups\/[^/]+\/videos\/)?(\d+)/);
   if (m) return { kind:"vimeo", id: m[1], key: "vm_" + m[1] };
+
+  // R2 upload: stored as r2://<r2Key>. mount fetches a fresh signed URL via /playback.
+  if (/^r2:\/\//.test(url)) { const r2Key = url.slice(5); return { kind: "r2", r2Key, key: "r2_" + hashStr(r2Key) }; }
 
   // Frame.io: resolved server-side via OAuth (see mountFrameio); link held as-is.
   if (/(?:^|\/\/|\.)frame\.io\//i.test(url) || /(?:^|\/\/)f\.io\//i.test(url)) {
@@ -452,7 +475,7 @@ function loadVimeoAPI(cb){ if (window.Vimeo && window.Vimeo.Player) { cb(); retu
 function resetPlayer(){
   ready = false; cachedTime = 0; isPlaying = false;
   try { if (vidEl) vidEl.pause(); } catch(e){}
-  ytP = null; vmP = null; vidEl = null; kind = null; vimeoThumb = ""; currentMediaUrl = "";
+  ytP = null; vmP = null; vidEl = null; kind = null; vimeoThumb = ""; currentMediaUrl = ""; currentR2Key = "";
   document.getElementById("player-host").innerHTML = "";
 }
 function updatePlayBtn(p){ isPlaying = p; document.getElementById("playBtn").textContent = p ? "⏸ Pause" : "▶ Play"; }
@@ -476,6 +499,7 @@ function lockLength(){
 
 function mount(source){
   if (source.kind === "frameio") { mountFrameio(source); return; }
+  if (source.kind === "r2") { mountR2(source); return; }
   resetPlayer();
   kind = source.kind;
   const host = document.getElementById("player-host");
@@ -550,6 +574,76 @@ async function mountFrameio(source){
     host.innerHTML = '<div class="fio-status">' + escapeHtml(e.message || "Couldn’t load that Frame.io link.") + '</div>';
   }
 }
+// Ask the upload Worker for a fresh signed playback URL for an uploaded R2 file.
+async function resolveR2Media(r2Key){
+  const r = await fetch(UPLOAD_BASE + "/playback", { method: "POST", headers: authHeaders({ "Content-Type": "application/json" }), body: JSON.stringify({ key: r2Key }) });
+  if (r.status === 402) { const e = new Error("Uploads need a Solo plan."); e.code = 402; throw e; }
+  if (r.status === 401) { const e = new Error("Sign in to access your upload."); e.code = 401; throw e; }
+  if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error(j.error || ("Upload server error " + r.status)); }
+  const data = await r.json();
+  if (!data.url) throw new Error("Couldn't get a playback URL.");
+  return data.url;
+}
+async function mountR2(source){
+  resetPlayer(); kind = "r2"; currentR2Key = source.r2Key;
+  const host = document.getElementById("player-host");
+  host.innerHTML = '<div class="fio-status">Loading your upload…</div>';
+  try {
+    const direct = await resolveR2Media(source.r2Key);
+    currentMediaUrl = direct;
+    mount({ kind: "html5", src: direct, key: source.key });
+    kind = "r2"; currentR2Key = source.r2Key; // mount(html5) overwrote these; restore so transcribe re-signs and delete-on-export works
+  } catch (e) {
+    host.innerHTML = '<div class="fio-status">' + escapeHtml(e.message || "Couldn’t load that upload.") + '</div>';
+  }
+}
+
+// Upload a video file directly to R2 via a presigned PUT, then open it as a project.
+async function uploadFile(file){
+  if (!file) return;
+  if (!/\.(mp4|m4v|mov|webm|mkv|avi)$/i.test(file.name)) { toast("That file type isn't supported.", "error"); return; }
+  if (file.size > 2 * 1024 * 1024 * 1024) { toast("File too large (2 GB max).", "error"); return; }
+  const token = window.SubAuth && SubAuth.token;
+  if (!token) { toast("Sign in to upload videos.", "error"); try { window.SubAuth && SubAuth.openSignIn && SubAuth.openSignIn(); } catch(e){} return; }
+  const prog = document.getElementById("upload-progress");
+  const fill = prog.querySelector(".fill");
+  const lbl = prog.querySelector(".label");
+  prog.hidden = false; fill.style.width = "0%"; lbl.textContent = "Preparing upload…";
+
+  try {
+    const signRes = await fetch(UPLOAD_BASE + "/sign-upload", {
+      method: "POST", headers: authHeaders({ "Content-Type": "application/json" }),
+      body: JSON.stringify({ filename: file.name, contentType: file.type || "application/octet-stream", size: file.size }),
+    });
+    if (signRes.status === 402) throw new Error("Uploading videos needs a Solo plan. Upgrade in Pricing.");
+    if (signRes.status === 401) throw new Error("Sign in to upload.");
+    if (!signRes.ok) { const j = await signRes.json().catch(() => ({})); throw new Error(j.error || "Upload sign failed"); }
+    const sign = await signRes.json();
+
+    // PUT the bytes direct to R2 with XHR (fetch can't report upload progress).
+    await new Promise((res, rej) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open("PUT", sign.uploadUrl, true);
+      xhr.upload.onprogress = e => {
+        if (!e.lengthComputable) return;
+        const pct = Math.round(e.loaded / e.total * 100);
+        fill.style.width = pct + "%"; lbl.textContent = "Uploading… " + pct + "%";
+      };
+      xhr.onload = () => (xhr.status >= 200 && xhr.status < 300) ? res() : rej(new Error("R2 upload failed (" + xhr.status + ")"));
+      xhr.onerror = () => rej(new Error("Network error during upload"));
+      xhr.send(file);
+    });
+
+    lbl.textContent = "Upload complete. Opening editor…";
+    // Open in a new tab via our standard flow, using r2:// as the source URL.
+    setTimeout(() => { prog.hidden = true; fill.style.width = "0%"; }, 1200);
+    openInNewTab("r2://" + sign.key);
+  } catch (e) {
+    prog.hidden = true; fill.style.width = "0%";
+    toast(e.message || "Upload failed", "error");
+  }
+}
+
 // Fullscreen the whole player wrapper (video + caption overlay together) rather
 // than the bare <video>, so captions stay visible in fullscreen. The native
 // video fullscreen button is disabled (controlsList) so this is the only path.
@@ -731,9 +825,27 @@ function startEditor(url){
 // A persistent note under the player for sources with caveats (Drive preview, etc.).
 function showSourceNote(s){
   const el = document.getElementById("source-note"); if (!el) return;
-  let msg = "";
-  if (/^gd_/.test(s.key)) msg = "Google Drive: the in-page preview may not play, but auto-transcribe still works as long as the file is shared with “Anyone with the link.”";
-  if (msg) { el.textContent = msg; el.hidden = false; } else { el.hidden = true; }
+  el.className = "source-msg info"; el.innerHTML = ""; el.hidden = true;
+  if (/^gd_/.test(s.key)) {
+    el.textContent = "Google Drive: the in-page preview may not play, but auto-transcribe still works as long as the file is shared with “Anyone with the link.”";
+    el.hidden = false; return;
+  }
+  if (s.kind === "r2") {
+    el.innerHTML = `Uploaded to cloud · auto-deletes in 7 days · <a href="#" id="r2-del" style="color:inherit;text-decoration:underline">Delete now</a>`;
+    el.hidden = false;
+    setTimeout(() => {
+      const a = document.getElementById("r2-del");
+      if (a) a.addEventListener("click", async e => {
+        e.preventDefault();
+        if (!(await confirmModal("Delete this uploaded video from the cloud? Your captions stay; the video file is removed.", "Delete"))) return;
+        try {
+          await fetch(UPLOAD_BASE + "/delete", { method: "POST", headers: authHeaders({ "Content-Type": "application/json" }), body: JSON.stringify({ key: currentR2Key }) });
+          toast("Uploaded video removed", "success");
+          el.hidden = true;
+        } catch (err) { toast("Couldn't delete: " + (err.message || "network error"), "error"); }
+      });
+    }, 0);
+  }
 }
 
 // Each video opens its own browser tab, so starting a new one never disturbs
@@ -1011,9 +1123,10 @@ async function autoTranscribe(){
         { start: 10.1, end: 13.0, text: "[auto] Fourth line" }
       ];
     } else {
-      // Frame.io signed URLs expire, so fetch a fresh one right before transcribing.
+      // Frame.io / R2 signed URLs expire, so fetch a fresh one right before transcribing.
       let fetchUrl = currentMediaUrl || currentSourceUrl;
       if (kind === "frameio") { try { fetchUrl = await resolveFrameioMedia(currentSourceUrl); currentMediaUrl = fetchUrl; } catch(e){ throw new Error(e.code === 401 ? "Connect your Frame.io account first." : (e.message || "Frame.io resolve failed")); } }
+      if (kind === "r2" && currentR2Key) { try { fetchUrl = await resolveR2Media(currentR2Key); currentMediaUrl = fetchUrl; } catch(e){ throw new Error(e.message || "Upload resolve failed"); } }
       const res = await fetch(TRANSCRIBE_BASE.replace(/\/$/, "") + "/transcribe", {
         method: "POST", headers: authHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify({ url: fetchUrl })
@@ -1129,6 +1242,20 @@ function toast(msg, type){
   document.getElementById("start-btn").addEventListener("click", () => openInNewTab(document.getElementById("yt-url").value));
   document.getElementById("yt-url").addEventListener("keydown", e => { if (e.key === "Enter") openInNewTab(e.target.value); });
   document.getElementById("try-sample").addEventListener("click", () => openInNewTab(SAMPLE_VIDEO));
+  // Upload zone: click to choose, drag-and-drop to upload.
+  const uz = document.getElementById("upload-zone"), uin = document.getElementById("upload-input");
+  if (uz && uin) {
+    const pickAndUpload = () => uin.click();
+    uz.addEventListener("click", pickAndUpload);
+    uz.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); pickAndUpload(); } });
+    uin.addEventListener("change", e => { const f = e.target.files && e.target.files[0]; if (f) uploadFile(f); uin.value = ""; });
+    ["dragenter","dragover"].forEach(t => uz.addEventListener(t, e => { e.preventDefault(); e.stopPropagation(); uz.classList.add("drag"); }));
+    ["dragleave","drop"].forEach(t => uz.addEventListener(t, e => { e.preventDefault(); e.stopPropagation(); uz.classList.remove("drag"); }));
+    uz.addEventListener("drop", e => { const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]; if (f) uploadFile(f); });
+    // Also block accidental drops on the whole window (so a missed drop doesn't open the file in a new tab).
+    window.addEventListener("dragover", e => e.preventDefault());
+    window.addEventListener("drop", e => e.preventDefault());
+  }
   document.getElementById("recent-projects").addEventListener("click", e => { const b = e.target.closest("[data-resume]"); if (b) openInNewTab(decodeURIComponent(b.dataset.resume)); });
   document.getElementById("translate-btn").addEventListener("click", translateCaptions);
   document.getElementById("auto-btn").addEventListener("click", autoTranscribe);

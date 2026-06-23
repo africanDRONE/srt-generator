@@ -1,0 +1,20 @@
+name = "subcaptions-upload"
+main = "upload.js"
+compatibility_date = "2026-01-01"
+
+# Public, non-secret config.
+[vars]
+ALLOWED_ORIGIN  = "https://subcaptions.johnnie-miller.workers.dev"
+R2_ACCOUNT_ID   = "148534663283634c1ce216acda0f558d"
+R2_BUCKET       = "subcaptions-uploads"
+SUPABASE_URL    = "https://knuprwhbesymksfcaqav.supabase.co"
+
+# R2 binding (used for delete + quota listing).
+[[r2_buckets]]
+binding     = "R2"
+bucket_name = "subcaptions-uploads"
+
+# Secrets (set with `wrangler secret put`, never commit):
+#   R2_ACCESS_KEY_ID
+#   R2_SECRET_ACCESS_KEY
+#   SUPABASE_ANON_KEY
