@@ -90,6 +90,12 @@
   .mock-video{position:relative;aspect-ratio:16/9;border-radius:var(--radius-lg);background:linear-gradient(150deg,#1e1b3a,#2d2150 55%,#3b1d44);box-shadow:var(--shadow-lg);overflow:hidden;border:1px solid rgba(255,255,255,.1)}
   .mock-video .play{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:76px;height:76px;border-radius:50%;background:rgba(255,255,255,.16);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;border:1px solid rgba(255,255,255,.25)}
   .mock-video .play::after{content:"";border-left:22px solid #fff;border-top:13px solid transparent;border-bottom:13px solid transparent;margin-left:5px}
+  #hero-video{width:100%;height:100%;object-fit:cover;display:block;background:#000}
+  .hero-vid-overlay{position:absolute;inset:0;display:flex;align-items:flex-end;justify-content:center;padding-bottom:30px;pointer-events:none;background:linear-gradient(to top,rgba(0,0,0,.45),transparent 45%)}
+  .hero-try{pointer-events:auto;font-size:16px;padding:15px 30px;border-radius:14px;box-shadow:0 12px 34px rgba(124,58,237,.5)}
+  .hero-vid-controls{position:absolute;bottom:12px;left:12px;display:flex;gap:8px;z-index:3}
+  .hero-ctrl{width:38px;height:38px;border:0;border-radius:9px;background:rgba(0,0,0,.55);color:#fff;font-size:15px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:.12s}
+  .hero-ctrl:hover{background:rgba(0,0,0,.8)}
   .mock-cap{position:absolute;bottom:11%;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.62);color:#fff;padding:10px 20px;border-radius:10px;font-size:clamp(14px,2.2vw,20px);font-weight:600;white-space:nowrap}
   .mock-progress{position:absolute;bottom:0;left:0;right:0;height:5px;background:rgba(255,255,255,.18)}.mock-progress::before{content:"";position:absolute;left:0;top:0;bottom:0;width:42%;background:var(--grad)}
   .float-card{position:absolute;background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow);padding:12px 15px;font-size:13px;display:flex;align-items:center;gap:10px;font-weight:600}
@@ -252,7 +258,14 @@
 
     <div class="hero-visual" id="hero-visual">
       <div class="mock-video">
-        <video src="/assets/sample.mp4" autoplay muted loop playsinline preload="metadata" style="width:100%;height:100%;object-fit:cover;display:block" aria-label="Sample video"></video>
+        <video id="hero-video" src="/assets/sample.mp4" autoplay muted loop playsinline preload="metadata" aria-label="Sample video"></video>
+        <div class="hero-vid-overlay">
+          <button class="btn btn-grad hero-try" id="hero-try">▶ Try it now — caption this video</button>
+        </div>
+        <div class="hero-vid-controls">
+          <button id="hero-playpause" class="hero-ctrl" aria-label="Play or pause" title="Play / pause">⏸</button>
+          <button id="hero-mute" class="hero-ctrl" aria-label="Mute or unmute" title="Sound on / off">🔇</button>
+        </div>
       </div>
     </div>
   </section>
@@ -1258,6 +1271,20 @@ function toast(msg, type){
   document.getElementById("start-btn").addEventListener("click", () => openInNewTab(document.getElementById("yt-url").value));
   document.getElementById("yt-url").addEventListener("keydown", e => { if (e.key === "Enter") openInNewTab(e.target.value); });
   document.getElementById("try-sample").addEventListener("click", () => openInNewTab(SAMPLE_VIDEO));
+  // Hero preview video: big "Try it now" CTA + play/pause and sound controls.
+  (function(){
+    const hv = document.getElementById("hero-video");
+    const hpp = document.getElementById("hero-playpause");
+    const hm = document.getElementById("hero-mute");
+    const ht = document.getElementById("hero-try");
+    if (ht) ht.addEventListener("click", () => openInNewTab(SAMPLE_VIDEO));
+    if (hv && hpp) {
+      const sync = () => { hpp.textContent = hv.paused ? "▶" : "⏸"; };
+      hpp.addEventListener("click", () => { hv.paused ? hv.play() : hv.pause(); });
+      hv.addEventListener("play", sync); hv.addEventListener("pause", sync); sync();
+    }
+    if (hv && hm) hm.addEventListener("click", () => { hv.muted = !hv.muted; hm.textContent = hv.muted ? "🔇" : "🔊"; });
+  })();
   // Upload zone: click to choose, drag-and-drop to upload.
   const uz = document.getElementById("upload-zone"), uin = document.getElementById("upload-input");
   if (uz && uin) {
