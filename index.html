@@ -208,6 +208,8 @@
   .step .num{width:38px;height:38px;border-radius:11px;background:var(--grad);color:#fff;font-family:var(--font-display);font-weight:700;font-size:18px;display:flex;align-items:center;justify-content:center;margin-bottom:14px;box-shadow:0 6px 16px rgba(124,58,237,.3)}
   .step h3{font-size:18px;margin-bottom:6px;font-family:var(--font-display)}.step p{color:var(--text-soft);font-size:14.5px}
   .feature-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+  .lang-chips{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;max-width:780px;margin:8px auto 0}
+  .lang-chip{background:var(--surface);border:1px solid var(--border);border-radius:99px;padding:6px 13px;font-size:13.5px;color:var(--text-soft);white-space:nowrap}
   .feat{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:24px;box-shadow:var(--shadow-sm)}
   .feat .ic{width:46px;height:46px;border-radius:13px;background:var(--grad-soft);display:flex;align-items:center;justify-content:center;font-size:22px;margin-bottom:14px}
   .feat h3{font-size:16.5px;margin-bottom:6px;font-family:var(--font-display)}.feat p{color:var(--text-soft);font-size:14px}
@@ -376,6 +378,12 @@
     </div>
   </section>
 
+  <section class="section" id="languages">
+    <h2>Subtitle and translate in any language</h2>
+    <p class="lead">Type captions by hand in any language or script. AI translation covers these and more, including ones Adobe and YouTube don't auto-transcribe.</p>
+    <div class="lang-chips" id="lang-chips"></div>
+  </section>
+
   <div class="cta-band">
     <h2>Got a video that needs captions?</h2>
     <p>Paste the link and start in seconds. No signup, no download.</p>
@@ -403,10 +411,11 @@ const SAMPLE_VIDEO = location.origin + "/assets/sample.mp4";  // self-hosted so 
 const FREE_MAX_MINUTES = 45;         // free plan video-length cap
 let IS_PRO = false;                  // entitlement; real check comes from auth later. ?pro=1 forces on for testing.
 const LANGUAGES = [
-  ["Spanish","es","🇪🇸"],["Portuguese (Brazil)","pt-BR","🇧🇷"],["French","fr","🇫🇷"],["German","de","🇩🇪"],["Italian","it","🇮🇹"],
-  ["Japanese","ja","🇯🇵"],["Korean","ko","🇰🇷"],["Chinese (Simplified)","zh-CN","🇨🇳"],["Hindi","hi","🇮🇳"],["Arabic","ar","🇸🇦"],
-  ["Russian","ru","🇷🇺"],["Turkish","tr","🇹🇷"],["Indonesian","id","🇮🇩"],["Vietnamese","vi","🇻🇳"],["Polish","pl","🇵🇱"],
-  ["Dutch","nl","🇳🇱"],["Thai","th","🇹🇭"],["Ukrainian","uk","🇺🇦"],["Filipino","tl","🇵🇭"],["Swedish","sv","🇸🇪"]
+  ["Spanish","es","🇪🇸"],["French","fr","🇫🇷"],["German","de","🇩🇪"],["Italian","it","🇮🇹"],["Portuguese","pt","🇵🇹"],["Portuguese (Brazil)","pt-BR","🇧🇷"],["Dutch","nl","🇳🇱"],["Russian","ru","🇷🇺"],["Polish","pl","🇵🇱"],["Turkish","tr","🇹🇷"],
+  ["Arabic","ar","🇸🇦"],["Hebrew","he","🇮🇱"],["Hindi","hi","🇮🇳"],["Bengali","bn","🇧🇩"],["Urdu","ur","🇵🇰"],["Japanese","ja","🇯🇵"],["Korean","ko","🇰🇷"],["Chinese (Simplified)","zh-CN","🇨🇳"],["Chinese (Traditional)","zh-TW","🇹🇼"],["Vietnamese","vi","🇻🇳"],
+  ["Thai","th","🇹🇭"],["Indonesian","id","🇮🇩"],["Malay","ms","🇲🇾"],["Filipino","tl","🇵🇭"],["Ukrainian","uk","🇺🇦"],["Czech","cs","🇨🇿"],["Slovak","sk","🇸🇰"],["Romanian","ro","🇷🇴"],["Hungarian","hu","🇭🇺"],["Greek","el","🇬🇷"],
+  ["Bulgarian","bg","🇧🇬"],["Serbian","sr","🇷🇸"],["Croatian","hr","🇭🇷"],["Swedish","sv","🇸🇪"],["Norwegian","no","🇳🇴"],["Danish","da","🇩🇰"],["Finnish","fi","🇫🇮"],["English","en","🇬🇧"],["Persian","fa","🇮🇷"],["Swahili","sw","🇰🇪"],
+  ["Tamil","ta","🇮🇳"],["Telugu","te","🇮🇳"],["Marathi","mr","🇮🇳"],["Catalan","ca","🇪🇸"]
 ];
 const LANG_BY_CODE = Object.fromEntries(LANGUAGES.map(l => [l[1], { name: l[0], flag: l[2] }]));
 
@@ -1616,6 +1625,8 @@ function toast(msg, type){
 (function init(){
   const tgt = document.getElementById("tgt-lang");
   tgt.innerHTML = LANGUAGES.map(([n,c,f]) => `<option value="${c}">${f} ${n}</option>`).join("");
+  const lc = document.getElementById("lang-chips");
+  if (lc) lc.innerHTML = LANGUAGES.map(([n,c,f]) => `<span class="lang-chip">${f} ${n}</span>`).join("");
   if (DEMO) document.getElementById("demo-flag").classList.add("show");
 
   document.getElementById("start-btn").addEventListener("click", () => openInNewTab(document.getElementById("yt-url").value));

@@ -53,7 +53,7 @@ app.use((req, res, next) => {
   next();
 });
 
-const BUILD = "2026-06-24-peaks"; // bump on deploy to verify what's live
+const BUILD = "2026-06-24-cleanup-fix"; // bump on deploy to verify what's live
 app.get("/healthz", (_req, res) => res.json({ ok: true, build: BUILD }));
 
 // Resolve the caller's subscription tier from their Supabase access token.
@@ -300,16 +300,24 @@ function packTimed(toks) {
 
 // Merge orphan/too-short cues into a neighbour and enforce a minimum on-screen time.
 function cleanup(cues) {
+  const small = (c) => c.text.replace(/\n/g, " ").length < MIN_CHARS || (c.end - c.start) < 0.7;
+  // Pass 1: merge a too-short cue BACKWARD into the previous one when it fits.
   const merged = [];
   for (const c of cues) {
     const prev = merged[merged.length - 1];
-    const flat = c.text.replace(/\n/g, " ");
-    const tooSmall = flat.length < MIN_CHARS || (c.end - c.start) < 0.7;
-    if (prev && tooSmall) {
-      const combined = prev.text.replace(/\n/g, " ") + " " + flat;
-      if (combined.length <= MAX_CHARS && (c.end - prev.start) <= MAX_DUR) { prev.text = wrap2(combined); prev.end = c.end; continue; }
+    if (prev && small(c)) {
+      const combined = prev.text.replace(/\n/g, " ") + " " + c.text.replace(/\n/g, " ");
+      if (combined.length <= MAX_CHARS && (c.end - prev.start) <= HARD_MAX_DUR) { prev.text = wrap2(combined); prev.end = c.end; continue; }
     }
     merged.push({ ...c });
+  }
+  // Pass 2: a short cue that couldn't merge back (e.g. a leading orphan) merges FORWARD into the next.
+  for (let i = 0; i < merged.length - 1; i++) {
+    const c = merged[i], next = merged[i + 1];
+    if (small(c)) {
+      const combined = c.text.replace(/\n/g, " ") + " " + next.text.replace(/\n/g, " ");
+      if (combined.length <= MAX_CHARS && (next.end - c.start) <= HARD_MAX_DUR) { next.text = wrap2(combined); next.start = c.start; merged.splice(i, 1); i--; }
+    }
   }
   // Hold each cue on screen long enough to read it (reading-speed floor), without
   // overlapping the next cue. This is what gives the professional ~6s-average feel.
