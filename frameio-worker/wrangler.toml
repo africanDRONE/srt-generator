@@ -5,7 +5,7 @@ compatibility_date = "2026-01-01"
 # Public config (non-secret).
 [vars]
 ALLOWED_ORIGIN = "https://subcaptions.com,https://www.subcaptions.com,https://subcaptions.johnnie-miller.workers.dev"  # site origins (first one is primary)
-SELF_ORIGIN    = "https://subcaptions-frameio.johnnie-miller.workers.dev"  # this Worker's own URL
+SELF_ORIGIN    = "https://frameio.subcaptions.com"  # this Worker's own URL (same-site with the app so Safari keeps the login cookie)
 
 # Token storage. Create with:  wrangler kv namespace create TOKENS
 # then paste the returned id below.
