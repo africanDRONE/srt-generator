@@ -51,7 +51,7 @@ app.use((req, res, next) => {
     res.set("Access-Control-Allow-Origin", origin);
     res.set("Vary", "Origin");
   }
-  res.set("Access-Control-Allow-Methods", "POST, GET, OPTIONS");
+  res.set("Access-Control-Allow-Methods", "POST, GET, PUT, DELETE, OPTIONS");
   res.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
   if (req.method === "OPTIONS") return res.sendStatus(204);
   next();
@@ -159,6 +159,102 @@ app.post("/billing/portal", async (req, res) => {
     return_url: `${process.env.APP_URL}/`,
   });
   res.json({ url: portal.url });
+});
+
+/* ============================ CLOUD PROJECTS ============================ */
+// Cross-device project storage. The client saves here when signed in; the
+// resume list and "open" pull from here. All queries are scoped by owner.
+
+app.get("/projects", async (req, res) => {
+  const user = await getUser(req);
+  if (!user) return res.status(401).json({ error: "Not signed in" });
+  const { data, error } = await supabase.from("projects")
+    .select("source_key, source_url, title, thumb, caption_count, updated_at")
+    .eq("owner", user.id).order("updated_at", { ascending: false }).limit(60);
+  if (error) return res.status(500).json({ error: error.message });
+  res.json({ projects: (data || []).map((p) => ({
+    key: p.source_key, url: p.source_url, title: p.title, th: p.thumb || "",
+    count: p.caption_count || 0, ts: new Date(p.updated_at).getTime(),
+  })) });
+});
+
+app.get("/projects/:key", async (req, res) => {
+  const user = await getUser(req);
+  if (!user) return res.status(401).json({ error: "Not signed in" });
+  const { data, error } = await supabase.from("projects")
+    .select("data").eq("owner", user.id).eq("source_key", req.params.key).maybeSingle();
+  if (error) return res.status(500).json({ error: error.message });
+  if (!data) return res.status(404).json({ error: "Not found" });
+  res.json({ data: data.data });
+});
+
+app.post("/projects", async (req, res) => {
+  const user = await getUser(req);
+  if (!user) return res.status(401).json({ error: "Not signed in" });
+  const { source_key, source_url, title, data } = req.body || {};
+  if (!source_key || !data) return res.status(400).json({ error: "source_key and data required" });
+  const row = {
+    owner: user.id, source_key, source_url: source_url || null, title: title || null,
+    thumb: (data.th || "").slice(0, 200000) || null,
+    caption_count: Array.isArray(data.c) ? data.c.length : 0,
+    data, updated_at: new Date().toISOString(),
+  };
+  const { error } = await supabase.from("projects").upsert(row, { onConflict: "owner,source_key" });
+  if (error) return res.status(500).json({ error: error.message });
+  res.json({ ok: true });
+});
+
+app.delete("/projects/:key", async (req, res) => {
+  const user = await getUser(req);
+  if (!user) return res.status(401).json({ error: "Not signed in" });
+  const { error } = await supabase.from("projects").delete().eq("owner", user.id).eq("source_key", req.params.key);
+  if (error) return res.status(500).json({ error: error.message });
+  res.json({ ok: true });
+});
+
+/* ===================== TRANSLATOR HANDOFF (share links) ===================== */
+// Owner mints a scoped token for ONE project; a translator opens it with no
+// account and edits translations. The token is the credential (no user auth).
+
+function randToken() { return [...crypto.getRandomValues(new Uint8Array(18))].map((b) => b.toString(16).padStart(2, "0")).join(""); }
+
+app.post("/projects/:key/share", async (req, res) => {
+  const user = await getUser(req);
+  if (!user) return res.status(401).json({ error: "Not signed in" });
+  const { data: proj, error: e1 } = await supabase.from("projects")
+    .select("id").eq("owner", user.id).eq("source_key", req.params.key).maybeSingle();
+  if (e1) return res.status(500).json({ error: e1.message });
+  if (!proj) return res.status(404).json({ error: "Save the project before sharing it." });
+  const token = randToken();
+  const { error } = await supabase.from("share_links").insert({
+    token, project_id: proj.id, can_edit: req.body?.canEdit !== false, label: req.body?.label || null,
+  });
+  if (error) return res.status(500).json({ error: error.message });
+  res.json({ token });
+});
+
+app.get("/share/:token", async (req, res) => {
+  const { data: link } = await supabase.from("share_links")
+    .select("project_id, can_edit, expires_at").eq("token", req.params.token).maybeSingle();
+  if (!link) return res.status(404).json({ error: "This share link is invalid or was revoked." });
+  if (link.expires_at && new Date(link.expires_at) < new Date()) return res.status(410).json({ error: "This share link has expired." });
+  const { data: proj } = await supabase.from("projects").select("title, source_url, data").eq("id", link.project_id).maybeSingle();
+  if (!proj) return res.status(404).json({ error: "The shared project no longer exists." });
+  res.json({ title: proj.title, source_url: proj.source_url, data: proj.data, canEdit: link.can_edit });
+});
+
+app.put("/share/:token", async (req, res) => {
+  const { data: link } = await supabase.from("share_links").select("project_id, can_edit, expires_at").eq("token", req.params.token).maybeSingle();
+  if (!link) return res.status(404).json({ error: "Invalid share link" });
+  if (!link.can_edit) return res.status(403).json({ error: "This link is view-only" });
+  if (link.expires_at && new Date(link.expires_at) < new Date()) return res.status(410).json({ error: "Link expired" });
+  const data = req.body?.data;
+  if (!data) return res.status(400).json({ error: "data required" });
+  const { error } = await supabase.from("projects").update({
+    data, caption_count: Array.isArray(data.c) ? data.c.length : 0, updated_at: new Date().toISOString(),
+  }).eq("id", link.project_id);
+  if (error) return res.status(500).json({ error: error.message });
+  res.json({ ok: true });
 });
 
 const PORT = process.env.PORT || 8090;

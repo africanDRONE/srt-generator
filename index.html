@@ -739,25 +739,72 @@ function thumbFor(){
 // The signed-in account id, or null when signed out. Projects are tagged with
 // this so the "pick up where you left off" list is per-account, not per-browser.
 function currentUserId(){ return (window.SubAuth && window.SubAuth.user && window.SubAuth.user.id) || null; }
+
+/* =================== CLOUD SYNC (signed-in, cross-device) =================== */
+// Local-first: localStorage is the instant store; when signed in we also push
+// to the cloud (debounced) and merge cloud projects into the resume list / open.
+const APP_API = "https://subcaptions.onrender.com"; // projects + share endpoints (same server as billing)
+let _cloudTimer = null;
+function cloudOn(){ return !!(currentUserId() && window.SubAuth && window.SubAuth.token); }
+function cloudSave(){
+  if (!cloudOn() || !currentKey) return;
+  clearTimeout(_cloudTimer);
+  _cloudTimer = setTimeout(() => {
+    const data = { c: captions, t: translations, th: thumbFor() || "", ts: Date.now(), uid: currentUserId() };
+    fetch(APP_API + "/projects", { method: "POST", headers: authHeaders({ "Content-Type": "application/json" }),
+      body: JSON.stringify({ source_key: currentKey, source_url: currentSourceUrl, title: currentSourceUrl, data }) }).catch(() => {});
+  }, 1500);
+}
+async function cloudList(){
+  if (!cloudOn()) return [];
+  try { const r = await fetch(APP_API + "/projects", { headers: authHeaders({}) }); return r.ok ? ((await r.json()).projects || []) : []; } catch(e){ return []; }
+}
+async function cloudGet(key){
+  if (!cloudOn()) return null;
+  try { const r = await fetch(APP_API + "/projects/" + encodeURIComponent(key), { headers: authHeaders({}) }); return r.ok ? ((await r.json()).data || null) : null; } catch(e){ return null; }
+}
+function cloudDelete(key){
+  if (!cloudOn()) return;
+  fetch(APP_API + "/projects/" + encodeURIComponent(key), { method: "DELETE", headers: authHeaders({}) }).catch(() => {});
+}
+// After opening a project, pull the cloud copy and adopt it if it's newer (cross-device).
+async function cloudHydrate(key){
+  const remote = await cloudGet(key);
+  if (!remote || !remote.c || !remote.c.length) return;
+  let localTs = 0; try { localTs = (JSON.parse(localStorage.getItem("subcap-" + key)) || {}).ts || 0; } catch(e){}
+  if ((remote.ts || 0) >= localTs || !captions.length) {
+    captions = remote.c; translations = remote.t || {};
+    fitProject(); try { localStorage.setItem("subcap-" + key, JSON.stringify({ c: captions, t: translations, u: currentSourceUrl, ts: remote.ts || Date.now(), th: remote.th || "", uid: currentUserId() })); } catch(e){}
+    renderColumns();
+  }
+}
 function persist(){
   try {
     let th = thumbFor();
     if (!th) { try { const prev = JSON.parse(localStorage.getItem("subcap-" + currentKey)); if (prev && prev.th) th = prev.th; } catch(e){} }
     localStorage.setItem("subcap-" + currentKey, JSON.stringify({ c: captions, t: translations, u: currentSourceUrl, ts: Date.now(), th: th || "", uid: currentUserId() }));
   } catch(e){}
+  cloudSave();
 }
-function renderRecent(){
+async function renderRecent(){
   const el = document.getElementById("recent-projects"); if (!el) return;
   const me = currentUserId();
-  const items = [];
+  const byKey = {};
+  // Local projects (instant; the storage key is "subcap-<sourceKey>").
   for (let i=0;i<localStorage.length;i++){
     const k = localStorage.key(i); if (!k || !k.startsWith("subcap-")) continue;
     try {
       const o = JSON.parse(localStorage.getItem(k));
       const owner = (o && o.uid) || null; // untagged = legacy/anonymous, claimable
-      if (o && o.u && o.c && o.c.length && (owner === me || !owner)) items.push({ key:k, url:o.u, count:o.c.length, ts:o.ts||0, th:o.th||"" });
+      if (o && o.u && o.c && o.c.length && (owner === me || !owner)) byKey[k.slice(7)] = { key:k, url:o.u, count:o.c.length, ts:o.ts||0, th:o.th||"" };
     } catch(e){}
   }
+  // Merge cloud projects (cross-device); cloud key is the bare sourceKey.
+  for (const p of await cloudList()){
+    const existing = byKey[p.key];
+    if (!existing || (p.ts||0) > existing.ts) byKey[p.key] = { key: "subcap-" + p.key, url: p.url, count: p.count||0, ts: p.ts||0, th: p.th||"" };
+  }
+  const items = Object.values(byKey);
   if (!items.length) { el.classList.add("hidden"); return; }
   items.sort((a,b)=>b.ts-a.ts);
   el.innerHTML = '<div class="recent-title">Pick up where you left off</div>' + items.slice(0,5).map(it => {
@@ -855,6 +902,7 @@ function startEditor(url){
   showSourceNote(s);
   mount(s);
   renderColumns();
+  cloudHydrate(s.key); // if signed in and the cloud has a newer copy, adopt it
 }
 // A persistent note under the player for sources with caveats (Drive preview, etc.).
 function showSourceNote(s){
@@ -1357,6 +1405,7 @@ function toast(msg, type){
       const url = decodeURIComponent(del.dataset.delUrl || "");
       if (/^r2:\/\//.test(url)) { try { await fetch(UPLOAD_BASE + "/delete", { method: "POST", headers: authHeaders({ "Content-Type": "application/json" }), body: JSON.stringify({ key: url.slice(5) }) }); } catch(err){} }
       try { localStorage.removeItem(del.dataset.delRecent); } catch(err){}
+      cloudDelete((del.dataset.delRecent || "").replace(/^subcap-/, "")); // also remove the cloud copy
       renderRecent();
       return;
     }
