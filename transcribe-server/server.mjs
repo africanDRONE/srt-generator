@@ -53,7 +53,7 @@ app.use((req, res, next) => {
   next();
 });
 
-const BUILD = "2026-06-24-cues-v3-pro"; // bump on deploy to verify what's live
+const BUILD = "2026-06-24-peaks"; // bump on deploy to verify what's live
 app.get("/healthz", (_req, res) => res.json({ ok: true, build: BUILD }));
 
 // Resolve the caller's subscription tier from their Supabase access token.
@@ -370,6 +370,53 @@ app.post("/burn", async (req, res) => {
   } finally {
     fs.rm(dir, { recursive: true, force: true }).catch(() => {});
   }
+});
+
+// Is the caller a valid signed-in Supabase user (any tier)? Light gate for /peaks.
+async function isSignedIn(req){
+  if (!process.env.SUPABASE_URL) return true; // dev/local
+  const a = req.get("authorization") || "";
+  const token = a.startsWith("Bearer ") ? a.slice(7) : null;
+  if (!token) return false;
+  try {
+    const r = await fetch(`${process.env.SUPABASE_URL}/auth/v1/user`, {
+      headers: { apikey: process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${token}` },
+    });
+    if (!r.ok) return false;
+    const u = await r.json();
+    return !!(u && u.id);
+  } catch(e){ return false; }
+}
+
+// Waveform peaks for any source the server can fetch (direct/S3/Dropbox/Drive/R2/Frame.io).
+// Just an audio download + a fast ffmpeg PCM pass, no Whisper, so it's cheap. Returns a
+// small {duration, peaks[0..1]} the browser draws. (YouTube/Vimeo excluded, same as transcribe.)
+app.post("/peaks", async (req, res) => {
+  if (!(await isSignedIn(req))) return res.status(401).json({ error: "Sign in to load the waveform for this source." });
+  const { url } = req.body || {};
+  if (!url || !/^https?:\/\//.test(url)) return res.status(400).json({ error: "Valid url required" });
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), "peaks-"));
+  try {
+    const ytdlpArgs = ["-f", "bestaudio/best", "--no-playlist", "-o", path.join(dir, "in.%(ext)s")];
+    if (process.env.YTDLP_PROXY) ytdlpArgs.push("--proxy", process.env.YTDLP_PROXY);
+    ytdlpArgs.push(url);
+    await run("yt-dlp", ytdlpArgs, { timeout: 1000 * 60 * 8 });
+    const dl = (await fs.readdir(dir)).find((f) => f.startsWith("in."));
+    if (!dl) throw new Error("Could not fetch audio for that link");
+    const inPath = path.join(dir, dl);
+    const probe = await run("ffprobe", ["-v", "error", "-show_entries", "format=duration", "-of", "default=nw=1:nk=1", inPath]).catch(() => null);
+    const duration = probe ? parseFloat(probe.stdout.trim()) : 0;
+    if (duration && duration > MAX_MINUTES * 60) return res.status(413).json({ error: `Video exceeds the ${MAX_MINUTES}-minute limit` });
+    const pcmPath = path.join(dir, "a.pcm");
+    await run("ffmpeg", ["-i", inPath, "-vn", "-ac", "1", "-ar", "4000", "-f", "s16le", pcmPath], { timeout: 1000 * 60 * 8 });
+    const b = await fs.readFile(pcmPath);
+    const ab = b.buffer.slice(b.byteOffset, b.byteOffset + b.length);
+    const samples = new Int16Array(ab);
+    const N = 800, win = Math.max(1, Math.floor(samples.length / N)), peaks = [];
+    for (let i = 0; i < N; i++){ let max = 0; const s = i * win; for (let j = 0; j < win; j++){ const v = Math.abs(samples[s + j] || 0); if (v > max) max = v; } peaks.push(+(max / 32768).toFixed(3)); }
+    res.json({ duration: duration || samples.length / 4000, peaks });
+  } catch(e){ res.status(502).json({ error: e.message || "Waveform failed" }); }
+  finally { fs.rm(dir, { recursive: true, force: true }).catch(() => {}); }
 });
 
 const PORT = process.env.PORT || 8080;

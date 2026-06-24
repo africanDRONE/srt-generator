@@ -603,20 +603,36 @@ async function buildWaveform(url){
   const wrap = document.getElementById("wave-wrap"); if (!wrap) return;
   wrap.hidden = true; waveDuration = 0;
   if (!url || !/^https?:/.test(url)) return;
+  // 1) Client-side: free and instant for CORS-fetchable files under ~60MB.
   try {
     const r = await fetch(url);
-    if (!r.ok) return;
-    const len = +(r.headers.get("content-length") || 0);
-    if (len > 60 * 1024 * 1024) return; // too big to decode in-browser; skip quietly
-    const buf = await r.arrayBuffer();
-    const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
-    const ctx = new AC();
-    const audio = await ctx.decodeAudioData(buf);
-    try { ctx.close(); } catch(e){}
-    waveDuration = audio.duration || 0;
-    drawWaveform(audio);
-    wrap.hidden = false;
-  } catch(e){ /* CORS or undecodable: no waveform, no error to the user */ }
+    if (r.ok) {
+      const len = +(r.headers.get("content-length") || 0);
+      if (len <= 60 * 1024 * 1024) {
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (AC) { const ctx = new AC(); const audio = await ctx.decodeAudioData(await r.arrayBuffer()); try { ctx.close(); } catch(e){}
+          waveDuration = audio.duration || 0; drawWaveform(audio); wrap.hidden = false; return; }
+      }
+    }
+  } catch(e){ /* CORS / too big / undecodable -> try the server */ }
+  // 2) Server-side peaks: any fetchable source (large/non-CORS). Signed-in only; cheap (no Whisper).
+  if (cloudOn()) {
+    try {
+      const r = await fetch(TRANSCRIBE_BASE.replace(/\/$/, "") + "/peaks", {
+        method: "POST", headers: authHeaders({ "Content-Type": "application/json" }),
+        body: JSON.stringify({ url: currentMediaUrl || url }) });
+      if (r.ok) { const d = await r.json(); if (d.peaks && d.peaks.length) { waveDuration = d.duration || 0; drawPeaks(d.peaks); wrap.hidden = false; } }
+    } catch(e){ /* no waveform, silent */ }
+  }
+}
+// Draw a waveform from a precomputed peaks array (0..1), as returned by /peaks.
+function drawPeaks(peaks){
+  const cv = document.getElementById("waveform");
+  const W = cv.clientWidth || 600, H = 46, dpr = window.devicePixelRatio || 1;
+  cv.width = W * dpr; cv.height = H * dpr;
+  const g = cv.getContext("2d"); g.scale(dpr, dpr);
+  const n = peaks.length, bw = W / n; g.clearRect(0, 0, W, H); g.fillStyle = "#c4b5fd";
+  for (let i = 0; i < n; i++){ const h = Math.max(1, peaks[i] * H * 0.92); g.fillRect(i * bw, (H - h) / 2, Math.max(1, bw - 0.5), h); }
 }
 function drawWaveform(audio){
   const cv = document.getElementById("waveform");
