@@ -185,6 +185,9 @@
   .cue-cell.active{border-color:var(--brand1);background:#fff;box-shadow:0 0 0 3px rgba(99,102,241,.1)}
   .cue-time{font-family:"SF Mono",Menlo,monospace;font-size:10px;color:var(--muted);display:flex;justify-content:space-between;margin-bottom:4px;cursor:pointer}
   .cue-time:hover{color:var(--brand1)}
+  .cps-warn{color:#b45309;font-weight:700}
+  .cue-cell.over{border-color:#fcd34d;background:#fffbeb}
+  .cue-tx[dir="rtl"]{text-align:right}
   .cue-tx{width:100%;border:none;background:transparent;resize:none;overflow:hidden;min-height:34px;font-family:inherit;font-size:13px;color:var(--text);outline:none;line-height:1.4;padding:0}
   .cue-tx::placeholder{color:var(--muted)}
   .col-empty{color:var(--muted);font-size:13px;text-align:center;padding:30px 14px}
@@ -1148,6 +1151,45 @@ function delCap(i){
 
 /* =================== COLUMNS (source + translations) =================== */
 function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+/* ============== Per-language subtitle rules (reading speed + line length) ==============
+   Script-aware so the "42 chars / 2 lines" discipline isn't a Latin-only assumption:
+   CJK counts full-width glyphs (~16/line, lower reading speed), Arabic/Hebrew render RTL. */
+const SCRIPT_RULES = {
+  latin: { maxLine: 42, maxCPS: 20, rtl: false },
+  cjk:   { maxLine: 16, maxCPS: 9,  rtl: false },
+  rtl:   { maxLine: 42, maxCPS: 20, rtl: true  },
+};
+function scriptOf(text){
+  if (/[぀-ヿ㐀-䶿一-鿿가-힯]/.test(text || "")) return "cjk";
+  if (/[֐-׿؀-ۿ܀-ݏ]/.test(text || "")) return "rtl";
+  return "latin";
+}
+// Evaluate one cue's text against its script's rules.
+function cueRules(text, durSec){
+  const R = SCRIPT_RULES[scriptOf(text)];
+  const plain = (text || "").replace(/\n/g, "");
+  const cps = durSec > 0 ? plain.length / durSec : 0;
+  const longLine = (text || "").split("\n").some(l => l.length > R.maxLine);
+  return { cps: Math.round(cps), rtl: R.rtl, maxCPS: R.maxCPS, maxLine: R.maxLine, overCPS: cps > R.maxCPS + 0.5, longLine };
+}
+// HTML for the warning chip (empty when the cue is within spec).
+function warnHtml(text, i){
+  const dur = (captions[i] ? (captions[i].end || 0) - (captions[i].start || 0) : 0);
+  const f = cueRules(text, dur); const w = [];
+  if (f.overCPS) w.push(f.cps + "/s");
+  if (f.longLine) w.push(">" + f.maxLine);
+  return w.length ? `<span class="cps-warn" title="Reads too fast and/or a line is too long for this language">⚠ ${w.join(" · ")}</span> ` : "";
+}
+// Live-update a cell's warning + direction as the user types (no full re-render).
+function refreshCellWarn(tx){
+  const cell = tx.closest(".cue-cell"); if (!cell) return;
+  const i = +tx.dataset.i, dur = (captions[i] ? (captions[i].end || 0) - (captions[i].start || 0) : 0);
+  const f = cueRules(tx.value, dur);
+  cell.classList.toggle("over", f.overCPS || f.longLine);
+  tx.dir = f.rtl ? "rtl" : "ltr";
+  const meta = cell.querySelector(".cue-time span:last-child");
+  if (meta) meta.innerHTML = warnHtml(tx.value, i) + "#" + (i + 1);
+}
 function colHtml(key, title, flag, isSource, rows, loading){
   const showing = overlayTrack === key;
   const head = `<div class="col-head">
@@ -1157,12 +1199,14 @@ function colHtml(key, title, flag, isSource, rows, loading){
   let body;
   if (loading) body = `<div class="col-loading">Translating…</div>`;
   else if (!captions.length) body = `<div class="col-empty"><div class="big">🎬</div>${isSource ? "No captions yet." : ""}</div>`;
-  else body = `<div class="col-body">${rows.map((r,i) => `
-      <div class="cue-cell" data-i="${i}">
-        <div class="cue-time" data-seek="${i}"><span>${formatTime(captions[i].start, true).slice(0,8)}</span><span>#${i+1}</span></div>
-        <textarea class="cue-tx" data-col="${key}" data-i="${i}" rows="1" placeholder="${isSource ? "caption" : "(translation)"}">${escapeHtml(r)}</textarea>
+  else body = `<div class="col-body">${rows.map((r,i) => {
+      const rl = cueRules(r, (captions[i].end||0)-(captions[i].start||0));
+      return `
+      <div class="cue-cell${(rl.overCPS||rl.longLine) ? " over" : ""}" data-i="${i}">
+        <div class="cue-time" data-seek="${i}"><span>${formatTime(captions[i].start, true).slice(0,8)}</span><span>${warnHtml(r,i)}#${i+1}</span></div>
+        <textarea class="cue-tx"${rl.rtl ? ' dir="rtl"' : ''} data-col="${key}" data-i="${i}" rows="1" placeholder="${isSource ? "caption" : "(translation)"}">${escapeHtml(r)}</textarea>
         ${isSource ? `<div class="cue-time" style="margin-top:4px;margin-bottom:0"><span data-edit="${i}" style="cursor:pointer">edit timing</span><span data-del="${i}" style="cursor:pointer">delete</span></div>` : ""}
-      </div>`).join("")}</div>`;
+      </div>`; }).join("")}</div>`;
   return `<div class="lang-col${isSource ? " source" : ""}">${head}${body}</div>`;
 }
 function renderColumns(loadingCode){
@@ -1545,7 +1589,7 @@ function toast(msg, type){
     const i = +tx.dataset.i, col = tx.dataset.col, val = tx.value;
     if (col === "source") { const parts = val.split("\n"); captions[i].line1 = parts[0] || ""; captions[i].line2 = parts.slice(1).join(" "); }
     else if (translations[col]) { translations[col].lines[i] = val; }
-    autosize(tx); alignOneRow(i);
+    autosize(tx); alignOneRow(i); refreshCellWarn(tx);
     persist();
   });
   // Column widths are responsive, so re-wrap and re-align rows when the window changes.
