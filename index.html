@@ -214,6 +214,20 @@
   .scc-msg{font-size:15px;color:var(--text);margin-bottom:20px;line-height:1.45}
   .scc-actions{display:flex;gap:12px}.scc-actions .btn{flex:1;padding:13px 22px;font-size:14.5px;min-width:130px}
   .scc-cancel{background:var(--surface-2);border:1px solid var(--border-strong);color:var(--text-soft)}
+  /* Translator handoff */
+  .columns-head #share-btn{font-size:13px;padding:7px 13px;white-space:nowrap}
+  .rev-banner{background:var(--grad-soft);border:1px solid var(--brand1);border-radius:12px;padding:12px 16px;margin-bottom:16px;font-size:14px;color:var(--text)}
+  .rev-banner.err{background:#fef2f2;border-color:#fecaca;color:#991b1b}
+  #rev-status{color:var(--brand2);font-weight:600;margin-left:6px}
+  body.reviewer #hero, body.reviewer #share-btn, body.reviewer #account-link, body.reviewer #auto-btn, body.reviewer .burn-row { display:none; }
+  #share-ov{position:fixed;inset:0;background:rgba(20,20,40,.45);display:none;align-items:center;justify-content:center;z-index:500;padding:20px}
+  #share-ov.show{display:flex}
+  .share-box{background:#fff;border-radius:16px;padding:24px;width:min(480px,94vw);box-shadow:0 30px 70px rgba(20,20,40,.35)}
+  .share-box h3{font-family:var(--font-display);font-size:18px;margin:0 0 6px}
+  .share-sub{font-size:13.5px;color:var(--text-soft);line-height:1.5;margin:0 0 16px}
+  .share-row input{width:100%;border:1px solid var(--border-strong);border-radius:10px;padding:11px 13px;font-size:13px;font-family:inherit;color:var(--text);background:var(--surface-2)}
+  .share-actions{display:flex;gap:10px;margin-top:14px}.share-actions .btn{flex:1;padding:12px}
+  .share-cancel{background:var(--surface-2);border:1px solid var(--border-strong);color:var(--text-soft)}
   #topbar{position:fixed;top:0;height:3px;width:28%;background:var(--grad);z-index:400;border-radius:0 3px 3px 0;display:none}
   #topbar.show{display:block;animation:topbar-slide 1.1s ease-in-out infinite}
   @keyframes topbar-slide{0%{left:-28%}100%{left:100%}}
@@ -323,6 +337,7 @@
         </div>
         <div class="columns-head">
           <h3>Captions <span class="hint" id="col-count">(0)</span></h3>
+          <button class="btn" id="share-btn" title="Hand this project to a translator">🔗 Share with translator</button>
         </div>
         <div class="columns" id="columns"></div>
       </div>
@@ -405,6 +420,9 @@ let currentKey = null;               // storage + filename key for the loaded so
 let currentSourceUrl = "";           // raw pasted URL (kept for persistence/resume)
 let currentMediaUrl = "";            // direct fetchable URL for transcription; differs from currentSourceUrl for Frame.io/R2 (signed URL)
 let currentR2Key = "";               // R2 object key for uploaded sources, so we can re-sign / delete
+let reviewerMode = false;            // true when a translator opened a ?share= link (no account)
+let shareToken = null;               // the scoped share token in reviewer mode
+let reviewerCanEdit = true;          // whether this share link allows edits
 let videoDuration = 0, lengthLocked = false;
 let overlayTrack = "source";          // which column ("source" or a lang code) shows on the video
 
@@ -779,6 +797,7 @@ async function cloudHydrate(key){
   }
 }
 function persist(){
+  if (reviewerMode) { reviewerSave(); return; }   // translator's edits save back through the share token
   try {
     let th = thumbFor();
     if (!th) { try { const prev = JSON.parse(localStorage.getItem("subcap-" + currentKey)); if (prev && prev.th) th = prev.th; } catch(e){} }
@@ -786,6 +805,21 @@ function persist(){
   } catch(e){}
   cloudSave();
 }
+// Translator (reviewer) edits save to the owner's project via the scoped token.
+let _revTimer = null;
+function reviewerSave(){
+  if (!shareToken || !reviewerCanEdit) return;
+  setReviewerStatus("Saving…");
+  clearTimeout(_revTimer);
+  _revTimer = setTimeout(() => {
+    fetch(APP_API + "/share/" + encodeURIComponent(shareToken), {
+      method: "PUT", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ data: { c: captions, t: translations, ts: Date.now() } }),
+    }).then(r => setReviewerStatus(r.ok ? "All changes saved" : "Save failed, retrying…"))
+      .catch(() => setReviewerStatus("Offline, will retry…"));
+  }, 1200);
+}
+function setReviewerStatus(msg){ const el = document.getElementById("rev-status"); if (el) el.textContent = msg; }
 async function renderRecent(){
   const el = document.getElementById("recent-projects"); if (!el) return;
   const me = currentUserId();
@@ -903,6 +937,81 @@ function startEditor(url){
   mount(s);
   renderColumns();
   cloudHydrate(s.key); // if signed in and the cloud has a newer copy, adopt it
+}
+
+/* =================== TRANSLATOR HANDOFF =================== */
+// Owner: save the project to the cloud, mint a scoped link, hand it to a translator.
+async function cloudSaveNow(){
+  if (!cloudOn() || !currentKey) return false;
+  const data = { c: captions, t: translations, th: thumbFor() || "", ts: Date.now(), uid: currentUserId() };
+  try {
+    const r = await fetch(APP_API + "/projects", { method: "POST", headers: authHeaders({ "Content-Type": "application/json" }),
+      body: JSON.stringify({ source_key: currentKey, source_url: currentSourceUrl, title: currentSourceUrl, data }) });
+    return r.ok;
+  } catch(e){ return false; }
+}
+async function shareProject(){
+  if (!cloudOn()) { toast("Sign in to hand a project to a translator.", "error"); try { window.SubAuth && SubAuth.signIn && SubAuth.signIn(); } catch(e){} return; }
+  if (!captions.length) { toast("Add or auto-generate some captions first.", "error"); return; }
+  const btn = document.getElementById("share-btn"); if (btn) btn.disabled = true;
+  try {
+    if (!(await cloudSaveNow())) throw new Error("Couldn't save the project to share it (is cloud sync set up?).");
+    const r = await fetch(APP_API + "/projects/" + encodeURIComponent(currentKey) + "/share", {
+      method: "POST", headers: authHeaders({ "Content-Type": "application/json" }), body: JSON.stringify({ canEdit: true }) });
+    if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error(j.error || ("Share failed (" + r.status + ")")); }
+    shareModal(location.origin + "/?share=" + (await r.json()).token);
+  } catch(e){ toast(e.message || "Couldn't create a share link", "error"); }
+  finally { if (btn) btn.disabled = false; }
+}
+function shareModal(url){
+  let ov = document.getElementById("share-ov");
+  if (!ov){ ov = document.createElement("div"); ov.id = "share-ov"; document.body.appendChild(ov); }
+  ov.innerHTML = '<div class="share-box"><h3>Send this to your translator</h3>' +
+    '<p class="share-sub">They open it in any browser and add the subtitles right on the video. No account, no software, no training.</p>' +
+    '<div class="share-row"><input id="share-url" readonly></div>' +
+    '<div class="share-actions"><button class="btn share-cancel" id="share-close">Done</button><button class="btn save-btn" id="share-copy">Copy link</button></div></div>';
+  ov.classList.add("show");
+  const inp = document.getElementById("share-url"); inp.value = url;
+  document.getElementById("share-copy").onclick = () => { inp.select(); navigator.clipboard?.writeText(url).catch(() => { try { document.execCommand("copy"); } catch(e){} }); document.getElementById("share-copy").textContent = "Copied"; };
+  document.getElementById("share-close").onclick = () => ov.classList.remove("show");
+  ov.onclick = e => { if (e.target === ov) ov.classList.remove("show"); };
+  setTimeout(() => { inp.focus(); inp.select(); }, 0);
+}
+
+// Translator (reviewer): open a shared project with no account and caption on the video.
+async function enterReviewer(token){
+  reviewerMode = true; shareToken = token;
+  const editor = document.getElementById("editor");
+  let d;
+  try {
+    const r = await fetch(APP_API + "/share/" + encodeURIComponent(token));
+    if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error(j.error || ("Couldn't open this link (" + r.status + ").")); }
+    d = await r.json();
+  } catch(e){
+    editor.classList.add("show");
+    editor.innerHTML = '<div class="rev-banner err">' + escapeHtml(e.message) + '</div>';
+    return;
+  }
+  reviewerCanEdit = d.canEdit !== false;
+  currentSourceUrl = d.source_url || "";
+  currentKey = "share";
+  captions = (d.data && d.data.c) || []; translations = (d.data && d.data.t) || {};
+  fitProject();
+  editor.classList.add("show");
+  const b = document.createElement("div");
+  b.className = "rev-banner";
+  b.innerHTML = "🎬 You're subtitling a shared project" + (d.title ? ": <b>" + escapeHtml(d.title) + "</b>" : "") + ". " +
+    (reviewerCanEdit ? 'Your changes save automatically. <span id="rev-status"></span>' : "This link is view-only.");
+  editor.insertBefore(b, editor.firstChild);
+  const s = resolveSource(currentSourceUrl);
+  if (s && s.kind !== "unsupported" && s.kind !== "frameio" && s.kind !== "r2") {
+    mount(s);
+  } else {
+    const host = document.getElementById("player-host");
+    if (host) host.innerHTML = '<div class="fio-status">The shared video isn\'t a directly playable link, so it can\'t preview here. The captions and timings load below; ask the project owner to share a direct or Vimeo/Dropbox link if you need the video.</div>';
+  }
+  renderColumns();
+  editor.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 // A persistent note under the player for sources with caveats (Drive preview, etc.).
 function showSourceNote(s){
@@ -1415,6 +1524,7 @@ function toast(msg, type){
   document.getElementById("auto-btn").addEventListener("click", autoTranscribe);
   document.getElementById("burn-btn").addEventListener("click", burnVideo);
   document.getElementById("fs-btn").addEventListener("click", toggleFullscreen);
+  document.getElementById("share-btn").addEventListener("click", shareProject);
   document.getElementById("line1").addEventListener("input", handleLine1Input);
 
   // event delegation for the columns area
@@ -1451,7 +1561,8 @@ function toast(msg, type){
     // Re-scope the recent list whenever the user signs in or out (landing view only).
     if (!document.body.classList.contains("editing-tab")) renderRecent();
   });
-  if (qp.get("v")) { document.body.classList.add("editing-tab"); startEditor(qp.get("v")); }
+  if (qp.get("share")) { document.body.classList.add("editing-tab", "reviewer"); enterReviewer(qp.get("share")); }
+  else if (qp.get("v")) { document.body.classList.add("editing-tab"); startEditor(qp.get("v")); }
   else renderRecent();
 
   document.addEventListener("keydown", e => {
