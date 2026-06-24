@@ -53,15 +53,11 @@
   .btn:active{transform:translateY(1px)}
   .btn-grad{background:var(--grad);color:#fff;padding:13px 26px;font-size:16px;box-shadow:0 8px 22px rgba(124,58,237,.35);white-space:nowrap}
   .btn-grad:hover{box-shadow:0 12px 30px rgba(124,58,237,.45);transform:translateY(-1px)}
-  .hero-foot{margin-top:14px;font-size:13.5px;color:var(--muted);display:flex;gap:18px;justify-content:center;flex-wrap:wrap}
-  .hero-foot span{display:inline-flex;align-items:center;gap:6px}
   .sources{margin-top:18px;font-size:12.5px;color:var(--muted)}
   .sources b{color:var(--text-soft);font-weight:600}
-  .try-sample{background:none;border:none;color:var(--brand1);cursor:pointer;font:inherit;font-weight:600;font-size:13.5px}.try-sample:hover{text-decoration:underline}
   .upload-zone{max-width:660px;margin:14px auto 6px;padding:18px;border:2px dashed var(--border-strong);border-radius:14px;background:#fff;display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer;transition:.15s;text-align:center}
   .upload-zone:hover,.upload-zone:focus,.upload-zone.drag{border-color:var(--brand1);background:var(--grad-soft);outline:none}
   .upload-zone.disabled{opacity:.55;cursor:not-allowed}
-  .upload-or{font-size:12px;color:var(--muted);letter-spacing:.04em;text-transform:uppercase;font-weight:600}
   .upload-cta{font-size:15px;color:var(--text);font-weight:600;display:flex;align-items:center;gap:8px}
   .upload-cta .pro-tag{font-size:11px}
   .upload-hint{font-size:12.5px;color:var(--muted)}
@@ -274,16 +270,12 @@
     </div>
     <div id="upload-zone" class="upload-zone" tabindex="0" role="button" aria-label="Upload a video file">
       <input type="file" id="upload-input" accept="video/mp4,video/quicktime,video/webm,video/x-matroska,video/x-msvideo,.mp4,.m4v,.mov,.webm,.mkv,.avi" hidden />
-      <span class="upload-or">or</span>
       <span class="upload-cta">📁 Drop a video here, or click to upload <span class="pro-tag">Solo</span></span>
       <span class="upload-hint">Up to 2 GB · .mp4, .mov, .webm, .mkv, .avi · auto-deleted after 7 days</span>
     </div>
     <div id="upload-progress" class="upload-progress" hidden><div class="bar"><div class="fill"></div></div><div class="label">Uploading… 0%</div></div>
     <div id="source-msg" class="source-msg" hidden></div>
     <div class="sources">We accept <b>YouTube</b>, <b>Vimeo</b>, <b>Frame.io</b>, <b>Rushes.cc</b>, <b>Dropbox</b>, <b>Google Drive</b>, and direct video files.</div>
-    <div class="hero-foot">
-      <button class="try-sample" id="try-sample">▶ Try it with a sample video</button>
-    </div>
     <div class="demo-flag" id="demo-flag">Demo mode: translation is simulated locally (no API key configured). Captioning, timing, and export are fully live.</div>
     <div id="recent-projects" class="recent hidden"></div>
 
@@ -1633,7 +1625,6 @@ function toast(msg, type){
 
   document.getElementById("start-btn").addEventListener("click", () => openInNewTab(document.getElementById("yt-url").value));
   document.getElementById("yt-url").addEventListener("keydown", e => { if (e.key === "Enter") openInNewTab(e.target.value); });
-  document.getElementById("try-sample").addEventListener("click", () => openInNewTab(SAMPLE_VIDEO));
   // Hero preview video: big "Try it now" CTA + play/pause and sound controls.
   (function(){
     const hv = document.getElementById("hero-video");
