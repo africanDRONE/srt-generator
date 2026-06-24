@@ -53,6 +53,12 @@ export default {
         headers.append("Set-Cookie", setCookie(self, "", 0));
         return new Response("<h2>Frame.io connection reset.</h2><p>You can close this tab and reconnect from the app.</p>", { status: 200, headers });
       }
+      if (url.pathname === "/status") {
+        const session = cookie(request, COOKIE);
+        let connected = false;
+        if (session) { try { connected = !!(await freshAccessToken(env, session)); } catch { connected = false; } }
+        return json({ connected, hasCookie: !!session }, 200, cors);
+      }
       if (url.pathname === "/start") return await start(url, env, self);
       if (url.pathname === "/callback") return await callback(url, env, self);
       if (url.pathname === "/resolve") return await resolve(request, url, env, cors);
@@ -105,9 +111,20 @@ async function callback(url, env, self) {
   const session = crypto.randomUUID();
   await saveTokens(env, session, tok);
 
-  const headers = new Headers({ Location: ret });
+  // Set the cookie on a first-party 200 page on THIS worker, then redirect to the app
+  // with JS. A Set-Cookie on a 302 that bounces straight to another origin is dropped
+  // by both Chrome and Safari, which is why the session never stuck.
+  let dest = ret;
+  if (!/^https?:\/\//i.test(dest)) dest = (env.ALLOWED_ORIGIN || "/").split(",")[0].trim();
+  const html = `<!doctype html><meta charset="utf-8"><title>Connecting…</title>
+<meta http-equiv="refresh" content="1;url=${escapeHtml(dest)}">
+<body style="font:15px/1.5 system-ui;margin:64px auto;max-width:420px;text-align:center;color:#333">
+<p>Frame.io connected. Returning to SubCaptions…</p>
+<p style="color:#888;font-size:13px">If this doesn't redirect, <a href="${escapeHtml(dest)}">click here</a>.</p>
+<script>location.replace(${JSON.stringify(dest)});</script></body>`;
+  const headers = new Headers({ "Content-Type": "text/html; charset=utf-8" });
   headers.append("Set-Cookie", setCookie(self, session, SESSION_TTL));
-  return new Response(null, { status: 302, headers });
+  return new Response(html, { status: 200, headers });
 }
 
 // Step 3: resolve a frame.io link to a direct media URL using the stored token.
