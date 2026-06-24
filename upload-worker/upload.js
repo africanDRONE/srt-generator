@@ -32,7 +32,9 @@ const ALLOWED_EXT = /\.(mp4|m4v|mov|webm|mkv|avi)$/i;
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
-    const origin = env.ALLOWED_ORIGIN || request.headers.get("Origin") || "*";
+    const _allowed = (env.ALLOWED_ORIGIN || "*").split(",").map(s => s.trim()).filter(Boolean);
+    const _reqOrigin = request.headers.get("Origin") || "";
+    const origin = _allowed.includes("*") ? "*" : (_allowed.includes(_reqOrigin) ? _reqOrigin : _allowed[0]);
     const cors = {
       "Access-Control-Allow-Origin": origin,
       "Access-Control-Allow-Methods": "GET, POST, OPTIONS",

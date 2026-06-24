@@ -4,7 +4,7 @@ compatibility_date = "2026-01-01"
 
 # Public, non-secret config.
 [vars]
-ALLOWED_ORIGIN  = "https://subcaptions.johnnie-miller.workers.dev"
+ALLOWED_ORIGIN  = "https://subcaptions.com,https://www.subcaptions.com,https://subcaptions.johnnie-miller.workers.dev"
 R2_ACCOUNT_ID   = "148534663283634c1ce216acda0f558d"
 R2_BUCKET       = "subcaptions-uploads"
 SUPABASE_URL    = "https://knuprwhbesymksfcaqav.supabase.co"

@@ -5,6 +5,7 @@
         "origins": [
           "https://subcaptions.johnnie-miller.workers.dev",
           "https://subcaptions.com",
+          "https://www.subcaptions.com",
           "http://localhost:8787",
           "http://localhost:8788"
         ],

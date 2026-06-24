@@ -29,7 +29,9 @@ const SESSION_TTL = 60 * 60 * 24 * 30; // 30 days
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
-    const origin = env.ALLOWED_ORIGIN || request.headers.get("Origin") || "*";
+    const _allowed = (env.ALLOWED_ORIGIN || "*").split(",").map(s => s.trim()).filter(Boolean);
+    const _reqOrigin = request.headers.get("Origin") || "";
+    const origin = _allowed.includes("*") ? "*" : (_allowed.includes(_reqOrigin) ? _reqOrigin : _allowed[0]);
     const cors = {
       "Access-Control-Allow-Origin": origin,
       "Access-Control-Allow-Credentials": "true",
@@ -64,7 +66,7 @@ export default {
 
 // Step 1: bounce the user to Adobe IMS, remembering where to send them back.
 async function start(url, env, self) {
-  const ret = url.searchParams.get("return") || env.ALLOWED_ORIGIN || "/";
+  const ret = url.searchParams.get("return") || (env.ALLOWED_ORIGIN || "/").split(",")[0].trim();
   const state = crypto.randomUUID();
   await env.TOKENS.put("state:" + state, ret, { expirationTtl: 600 });
   const a = new URL(IMS_AUTHORIZE);
