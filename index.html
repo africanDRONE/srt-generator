@@ -852,13 +852,15 @@ function cloudDelete(key){
 // After opening a project, pull the cloud copy and adopt it if it's newer (cross-device).
 async function cloudHydrate(key){
   const remote = await cloudGet(key);
-  if (!remote || !remote.c || !remote.c.length) return;
+  if (!remote || !remote.c || !remote.c.length) return false;
   let localTs = 0; try { localTs = (JSON.parse(localStorage.getItem("subcap-" + key)) || {}).ts || 0; } catch(e){}
-  if ((remote.ts || 0) >= localTs || !captions.length) {
+  if ((remote.ts || 0) > localTs || !captions.length) {
     captions = remote.c; translations = remote.t || {};
     fitProject(); try { localStorage.setItem("subcap-" + key, JSON.stringify({ c: captions, t: translations, u: currentSourceUrl, ts: remote.ts || Date.now(), th: remote.th || "", uid: currentUserId() })); } catch(e){}
     renderColumns();
+    return true;
   }
+  return false;
 }
 function persist(){
   if (reviewerMode) { reviewerSave(); return; }   // translator's edits save back through the share token
@@ -1712,6 +1714,14 @@ function toast(msg, type){
   // Column widths are responsive, so re-wrap and re-align rows when the window changes.
   let resizeT = null;
   window.addEventListener("resize", () => { clearTimeout(resizeT); resizeT = setTimeout(alignRows, 150); });
+  // When the owner returns to the tab, pull any newer cloud copy (e.g. a translator's
+  // edits made via a share link). Skips reviewer mode and while you're mid-edit.
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden || reviewerMode || !currentKey) return;
+    if (!document.getElementById("editor").classList.contains("show")) return;
+    if (document.activeElement && document.activeElement.tagName === "TEXTAREA") return;
+    cloudHydrate(currentKey).then(changed => { if (changed) toast("Updated with the translator's latest changes", "success"); });
+  });
 
   // deep link ?v=<id or url>
   const qp = new URLSearchParams(location.search);
