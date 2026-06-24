@@ -221,6 +221,10 @@ function randToken() { return [...crypto.getRandomValues(new Uint8Array(18))].ma
 app.post("/projects/:key/share", async (req, res) => {
   const user = await getUser(req);
   if (!user) return res.status(401).json({ error: "Not signed in" });
+  // Translator handoff is a Team-plan feature. Enforce it here so the API can't be
+  // called directly by a Free/Solo account that bypasses the client gate.
+  const { data: profile } = await supabase.from("profiles").select("tier").eq("id", user.id).single();
+  if (profile?.tier !== "team") return res.status(403).json({ error: "Sharing with a translator is a Team plan feature. Upgrade to Team to hand off projects." });
   const { data: proj, error: e1 } = await supabase.from("projects")
     .select("id").eq("owner", user.id).eq("source_key", req.params.key).maybeSingle();
   if (e1) return res.status(500).json({ error: e1.message });

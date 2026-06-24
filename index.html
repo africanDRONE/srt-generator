@@ -342,7 +342,7 @@
         </div>
         <div class="columns-head">
           <h3>Captions <span class="hint" id="col-count">(0)</span></h3>
-          <button class="btn" id="share-btn" title="Hand this project to a translator">🔗 Share with translator</button>
+          <button class="btn" id="share-btn" title="Hand this project to a translator (Team plan)">🔗 Share with translator <span class="pro-tag">Team</span></button>
         </div>
         <div class="columns" id="columns"></div>
       </div>
@@ -1008,8 +1008,32 @@ async function cloudSaveNow(){
     return r.ok;
   } catch(e){ return false; }
 }
+// Authoritative Team-tier check (mirrors ensurePaid): asks the billing server with the
+// live token so a real Team user is never wrongly blocked by session-load timing.
+async function ensureTeam(){
+  try {
+    const token = window.SubAuth && SubAuth.token;
+    if (token) {
+      const r = await fetch("https://subcaptions.onrender.com/billing/me", { headers: { Authorization: "Bearer " + token } });
+      if (r.ok) return (await r.json()).tier === "team";
+    }
+  } catch (e) {}
+  return ((window.SubAuth && SubAuth.tier) || "free") === "team";
+}
+function teamGateModal(){
+  let ov = document.getElementById("share-ov");
+  if (!ov){ ov = document.createElement("div"); ov.id = "share-ov"; document.body.appendChild(ov); }
+  ov.innerHTML = '<div class="share-box"><h3>Translator handoff is a Team feature</h3>' +
+    '<p class="share-sub">Team lets you hand a project to a translator who captions right on the video, with no account or software. Upgrade to Team to turn this on.</p>' +
+    '<div class="share-actions"><button class="btn share-cancel" id="share-close">Maybe later</button><button class="btn save-btn" id="team-upgrade">See the Team plan</button></div></div>';
+  ov.classList.add("show");
+  document.getElementById("share-close").onclick = () => ov.classList.remove("show");
+  document.getElementById("team-upgrade").onclick = () => { location.href = "/pricing"; };
+  ov.onclick = e => { if (e.target === ov) ov.classList.remove("show"); };
+}
 async function shareProject(){
   if (!cloudOn()) { toast("Sign in to hand a project to a translator.", "error"); try { window.SubAuth && SubAuth.signIn && SubAuth.signIn(); } catch(e){} return; }
+  if (!(await ensureTeam())) { teamGateModal(); return; }
   if (!captions.length) { toast("Add or auto-generate some captions first.", "error"); return; }
   const btn = document.getElementById("share-btn"); if (btn) btn.disabled = true;
   try {
