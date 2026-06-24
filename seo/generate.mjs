@@ -7,7 +7,7 @@
  *   /translate-srt-to-<lang>/index.html   (one per TARGET_LANGUAGES row)
  *   /<use-case-slug>/index.html           (one per USE_CASES row)
  *   /languages/index.html                 (index of all language pages)
- *   /pricing.html                         (free vs Pro)
+ *   /pricing                         (free vs Pro)
  *   /styles/pages.css                     (shared stylesheet)
  *   /sitemap.xml, /robots.txt
  *
@@ -55,15 +55,15 @@ ${jsonLd ? `<script type="application/ld+json">${JSON.stringify(jsonLd)}</script
   <a class="brand" href="/"><img class="mark" src="/assets/logo.svg" width="40" height="40" alt="" /> ${esc(SITE.name)}</a>
   <nav class="nav-links">
     <a href="/">Caption</a>
-    <a href="/translate.html">Translate</a>
-    <a href="/pricing.html">Pricing</a>
+    <a href="/translate">Translate</a>
+    <a href="/pricing">Pricing</a>
     <a href="#" id="account-link" data-account>Sign in</a>
   </nav>
 </div></header>
 <div class="wrap">
   <main>${bodyHtml}</main>
   <footer class="site">
-    <div><a href="/">Caption</a> · <a href="/translate.html">Translate</a> · <a href="/pricing.html">Pricing</a> · <a href="/privacy.html">Privacy</a> · <a href="/terms.html">Terms</a></div>
+    <div><a href="/">Caption</a> · <a href="/translate">Translate</a> · <a href="/pricing">Pricing</a> · <a href="/privacy">Privacy</a> · <a href="/terms">Terms</a></div>
   </footer>
 </div>
 <script type="module" src="/lib/auth.js"></script>
@@ -96,7 +96,7 @@ function langPage(lang) {
   const title = `Translate SRT to ${lang.name}, Free Subtitle Translator`;
   const metaDesc = `Translate .srt and .vtt subtitle files from ${DEFAULT_SOURCE.name} to ${lang.name} (${lang.native}) free. AI translation, preview on video, no signup, files never stored.`;
   const h1 = `Translate SRT subtitles to ${lang.name}`;
-  const deep = `/translate.html?from=${DEFAULT_SOURCE.code}&to=${encodeURIComponent(lang.code)}`;
+  const deep = `/translate?from=${DEFAULT_SOURCE.code}&to=${encodeURIComponent(lang.code)}`;
 
   const intro = `Translate your <strong>.srt</strong> or <strong>.vtt</strong> subtitles from ${DEFAULT_SOURCE.name} into ${lang.name} (${esc(lang.native)}) in a couple of clicks. ${lang.name} reaches roughly <strong>${esc(lang.speakers)} speakers</strong>, ${esc(lang.note)}. The translation keeps your exact timecodes, and you can preview the ${lang.name} captions on the real video before you export.`;
 
@@ -136,7 +136,7 @@ function useCasePage(uc) {
     <nav class="crumbs"><a href="/">Home</a> › <span>${esc(uc.title)}</span></nav>
     <h1>${esc(uc.h1)}</h1>
     <p class="lede">${esc(uc.intro)}</p>
-    <div class="cta-row">${cta("/translate.html", "Open the translator →")}<span class="cta-note">🔒 Free · no signup · files never stored</span></div>
+    <div class="cta-row">${cta("/translate", "Open the translator →")}<span class="cta-note">🔒 Free · no signup · files never stored</span></div>
     ${stepsBlock(uc.steps)}
     ${faqHtml}
     <section class="related"><h2>Popular language pairs</h2><div class="chips">${TARGET_LANGUAGES.slice(0, 12).map((l) => `<a href="/translate-srt-to-${slugify(l.name)}/">SRT to ${esc(l.name)}</a>`).join("")}</div></section>
@@ -160,7 +160,7 @@ function captionerPage(cp) {
     ${stepsBlock(cp.steps)}
     ${faqHtml}
     <section class="related"><h2>More guides</h2>${guideChips(cp.slug)}</section>
-    <section class="related"><h2>Or translate subtitles</h2><div class="chips"><a href="/translate.html">Translate a file</a>${TARGET_LANGUAGES.slice(0, 8).map((l) => `<a href="/translate-srt-to-${slugify(l.name)}/">SRT to ${esc(l.name)}</a>`).join("")}</div></section>
+    <section class="related"><h2>Or translate subtitles</h2><div class="chips"><a href="/translate">Translate a file</a>${TARGET_LANGUAGES.slice(0, 8).map((l) => `<a href="/translate-srt-to-${slugify(l.name)}/">SRT to ${esc(l.name)}</a>`).join("")}</div></section>
   `;
   return { slug: cp.slug, canonical, html: page({ title, metaDesc: cp.metaDesc, canonical, h1: cp.h1, bodyHtml, jsonLd }) };
 }
@@ -184,7 +184,7 @@ function languagesIndex() {
 
 /* ---------- pricing ---------- */
 function pricingPage() {
-  const canonical = `${SITE.origin}/pricing.html`;
+  const canonical = `${SITE.origin}/pricing`;
   const bodyHtml = `
     <nav class="crumbs"><a href="/">Home</a> › <span>Pricing</span></nav>
     <h1>Pricing that undercuts everyone</h1>
@@ -344,7 +344,7 @@ footer.site a{color:var(--text-soft);margin:0 7px}.fine{margin-top:10px}
 
 /* ---------- run ---------- */
 console.log("Generating SEO pages…");
-const urls = [`${SITE.origin}/`, `${SITE.origin}/translate.html`, `${SITE.origin}/languages/`, `${SITE.origin}/pricing.html`];
+const urls = [`${SITE.origin}/`, `${SITE.origin}/translate`, `${SITE.origin}/languages/`, `${SITE.origin}/pricing`];
 
 function legalPage(slug, h1, inner) {
   const bodyHtml = `

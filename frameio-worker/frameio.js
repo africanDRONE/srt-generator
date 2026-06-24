@@ -90,26 +90,23 @@ async function start(url, env, self) {
 
 // Step 2: exchange the code for tokens, store them under a fresh session id, set cookie.
 async function callback(url, env, self) {
-  console.log("CB hit; self=" + self + " params=" + [...url.searchParams.keys()].join(","));
   // Surface Adobe's own error instead of silently flashing past it.
   const adobeErr = url.searchParams.get("error");
   if (adobeErr) {
     const desc = url.searchParams.get("error_description") || "";
-    console.log("CB adobe error: " + adobeErr + " " + desc);
     return htmlError("Adobe sign-in error", adobeErr + (desc ? "\n\n" + desc : ""));
   }
   const code = url.searchParams.get("code");
   const state = url.searchParams.get("state");
-  if (!code || !state) { console.log("CB missing code/state"); return htmlError("Sign-in incomplete", "Adobe didn't return an authorization code. This usually means the redirect URI or scopes on the Adobe credential don't match."); }
+  if (!code || !state) return htmlError("Sign-in incomplete", "Adobe didn't return an authorization code. This usually means the redirect URI or scopes on the Adobe credential don't match.");
   const ret = await env.TOKENS.get("state:" + state);
-  if (!ret) { console.log("CB state not found in KV"); return htmlError("Session expired", "The sign-in attempt expired or was already used. Start over from the app."); }
+  if (!ret) return htmlError("Session expired", "The sign-in attempt expired or was already used. Start over from the app.");
   await env.TOKENS.delete("state:" + state);
 
   let tok;
   try {
     tok = await exchange(env, { grant_type: "authorization_code", code, redirect_uri: self + "/callback" });
   } catch (e) {
-    console.log("CB token exchange FAILED: " + (e.message || e));
     return htmlError("Token exchange failed", e.message || "Adobe rejected the token request.");
   }
   const session = crypto.randomUUID();
@@ -124,7 +121,6 @@ async function callback(url, env, self) {
   const handoff = crypto.randomUUID();
   await env.TOKENS.put("handoff:" + handoff, session, { expirationTtl: 120 });
   const finishUrl = self + "/finish?h=" + handoff + "&ret=" + encodeURIComponent(dest);
-  console.log("CB success; handing off to " + finishUrl);
   return Response.redirect(finishUrl, 302);
 }
 
@@ -137,7 +133,6 @@ async function finish(url, env, self) {
   const session = h ? await env.TOKENS.get("handoff:" + h) : null;
   if (!session) return htmlError("Sign-in handoff expired", "Please start the Frame.io connection again from the app.");
   await env.TOKENS.delete("handoff:" + h);
-  console.log("FINISH set cookie: " + setCookie(self, session, SESSION_TTL) + " ret=" + ret);
   const html = `<!doctype html><meta charset="utf-8"><title>Connecting…</title>
 <meta http-equiv="refresh" content="1;url=${escapeHtml(ret)}">
 <body style="font:15px/1.5 system-ui;margin:64px auto;max-width:420px;text-align:center;color:#333">

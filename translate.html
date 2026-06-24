@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Translate Subtitle Files, SRT &amp; VTT in 50+ Languages | SubCaptions</title>
 <meta name="description" content="Already have a subtitle file? Translate .srt or .vtt into 50+ languages in your browser. Timecodes preserved, files never stored, no signup." />
-<link rel="canonical" href="https://subcaptions.com/translate.html" />
+<link rel="canonical" href="https://subcaptions.com/translate" />
 <link rel="icon" type="image/svg+xml" href="/assets/logo.svg" />
 <link rel="icon" type="image/png" sizes="32x32" href="/assets/logo-32.png" />
 <link rel="apple-touch-icon" href="/assets/logo-180.png" />
@@ -102,8 +102,8 @@
     <a class="brand" href="/"><img class="mark" src="/assets/logo.svg" width="40" height="40" alt="" /> SubCaptions</a>
     <nav class="nav-links">
       <a href="/">Caption</a>
-      <a href="/translate.html">Translate</a>
-      <a href="/pricing.html">Pricing</a>
+      <a href="/translate">Translate</a>
+      <a href="/pricing">Pricing</a>
       <a href="#" id="account-link" data-account>Sign in</a>
     </nav>
   </div>
@@ -154,7 +154,7 @@
   </div>
 
   <footer class="site">
-    <div><a href="/">Caption</a> · <a href="/translate.html">Translate</a> · <a href="/pricing.html">Pricing</a> · <a href="/privacy.html">Privacy</a> · <a href="/terms.html">Terms</a></div>
+    <div><a href="/">Caption</a> · <a href="/translate">Translate</a> · <a href="/pricing">Pricing</a> · <a href="/privacy">Privacy</a> · <a href="/terms">Terms</a></div>
   </footer>
 </div>
 <div class="toast" id="toast"></div>
@@ -179,7 +179,7 @@ async function translateBatch(texts,source,target){
 }
 async function addTranslation(){
   if(!cues.length){toast("Add a file or paste text first","error");return;}
-  if(cues.length>FREE_LINE_LIMIT){toast("Over the free limit, Pro handles full-length files","error");location.href="/pricing.html";return;}
+  if(cues.length>FREE_LINE_LIMIT){toast("Over the free limit, Pro handles full-length files","error");location.href="/pricing";return;}
   const sel=document.getElementById("tgt-lang");
   const code=sel.value, name=sel.selectedOptions[0].textContent.trim();
   if(langCols.some(l=>l.code===code)){toast(name+" is already added","error");return;}
@@ -251,7 +251,7 @@ function ingest(raw,name){
   document.getElementById("dz-count").textContent=cues.length;
   document.getElementById("translate-btn").disabled=false;
   const note=document.getElementById("limit-note");
-  if(cues.length>FREE_LINE_LIMIT){note.innerHTML=`Loaded <strong style="color:var(--brand3)">${cues.length}</strong> lines, over the free limit of ${FREE_LINE_LIMIT}. <a href="/pricing.html">See Pro →</a>`;}
+  if(cues.length>FREE_LINE_LIMIT){note.innerHTML=`Loaded <strong style="color:var(--brand3)">${cues.length}</strong> lines, over the free limit of ${FREE_LINE_LIMIT}. <a href="/pricing">See Pro →</a>`;}
   else{note.innerHTML=`Loaded <strong>${cues.length}</strong> lines. Pick a language and hit Add translation.`;}
   render();
 }
