@@ -61,6 +61,7 @@ export default {
       }
       if (url.pathname === "/start") return await start(url, env, self);
       if (url.pathname === "/callback") return await callback(url, env, self);
+      if (url.pathname === "/finish") return await finish(url, env, self);
       if (url.pathname === "/resolve") return await resolve(request, url, env, cors);
       if (url.pathname === "/disconnect" && request.method === "POST") return await disconnect(request, env, cors, origin, self);
       return json({ error: "Not found" }, 404, cors);
@@ -89,39 +90,60 @@ async function start(url, env, self) {
 
 // Step 2: exchange the code for tokens, store them under a fresh session id, set cookie.
 async function callback(url, env, self) {
+  console.log("CB hit; self=" + self + " params=" + [...url.searchParams.keys()].join(","));
   // Surface Adobe's own error instead of silently flashing past it.
   const adobeErr = url.searchParams.get("error");
   if (adobeErr) {
     const desc = url.searchParams.get("error_description") || "";
+    console.log("CB adobe error: " + adobeErr + " " + desc);
     return htmlError("Adobe sign-in error", adobeErr + (desc ? "\n\n" + desc : ""));
   }
   const code = url.searchParams.get("code");
   const state = url.searchParams.get("state");
-  if (!code || !state) return htmlError("Sign-in incomplete", "Adobe didn't return an authorization code. This usually means the redirect URI or scopes on the Adobe credential don't match.");
+  if (!code || !state) { console.log("CB missing code/state"); return htmlError("Sign-in incomplete", "Adobe didn't return an authorization code. This usually means the redirect URI or scopes on the Adobe credential don't match."); }
   const ret = await env.TOKENS.get("state:" + state);
-  if (!ret) return htmlError("Session expired", "The sign-in attempt expired or was already used. Start over from the app.");
+  if (!ret) { console.log("CB state not found in KV"); return htmlError("Session expired", "The sign-in attempt expired or was already used. Start over from the app."); }
   await env.TOKENS.delete("state:" + state);
 
   let tok;
   try {
     tok = await exchange(env, { grant_type: "authorization_code", code, redirect_uri: self + "/callback" });
   } catch (e) {
+    console.log("CB token exchange FAILED: " + (e.message || e));
     return htmlError("Token exchange failed", e.message || "Adobe rejected the token request.");
   }
   const session = crypto.randomUUID();
   await saveTokens(env, session, tok);
 
-  // Set the cookie on a first-party 200 page on THIS worker, then redirect to the app
-  // with JS. A Set-Cookie on a 302 that bounces straight to another origin is dropped
-  // by both Chrome and Safari, which is why the session never stuck.
+  // Adobe always calls back to its registered redirect host, which is the workers.dev
+  // one, and a workers.dev response can't set a cookie for subcaptions.com (so the
+  // browser drops it every time). Hand the session to the subcaptions.com subdomain via
+  // a short-lived one-time token; /finish there sets the cookie on the right host.
   let dest = ret;
   if (!/^https?:\/\//i.test(dest)) dest = (env.ALLOWED_ORIGIN || "/").split(",")[0].trim();
+  const handoff = crypto.randomUUID();
+  await env.TOKENS.put("handoff:" + handoff, session, { expirationTtl: 120 });
+  const finishUrl = self + "/finish?h=" + handoff + "&ret=" + encodeURIComponent(dest);
+  console.log("CB success; handing off to " + finishUrl);
+  return Response.redirect(finishUrl, 302);
+}
+
+// Step 2b: runs on frameio.subcaptions.com. Exchanges the one-time handoff token for the
+// session and sets the cookie HERE, on a subcaptions.com host, so the browser keeps it.
+async function finish(url, env, self) {
+  const h = url.searchParams.get("h");
+  let ret = url.searchParams.get("ret") || "";
+  if (!/^https?:\/\//i.test(ret)) ret = (env.ALLOWED_ORIGIN || "/").split(",")[0].trim();
+  const session = h ? await env.TOKENS.get("handoff:" + h) : null;
+  if (!session) return htmlError("Sign-in handoff expired", "Please start the Frame.io connection again from the app.");
+  await env.TOKENS.delete("handoff:" + h);
+  console.log("FINISH set cookie: " + setCookie(self, session, SESSION_TTL) + " ret=" + ret);
   const html = `<!doctype html><meta charset="utf-8"><title>Connecting…</title>
-<meta http-equiv="refresh" content="1;url=${escapeHtml(dest)}">
+<meta http-equiv="refresh" content="1;url=${escapeHtml(ret)}">
 <body style="font:15px/1.5 system-ui;margin:64px auto;max-width:420px;text-align:center;color:#333">
 <p>Frame.io connected. Returning to SubCaptions…</p>
-<p style="color:#888;font-size:13px">If this doesn't redirect, <a href="${escapeHtml(dest)}">click here</a>.</p>
-<script>location.replace(${JSON.stringify(dest)});</script></body>`;
+<p style="color:#888;font-size:13px">If this doesn't redirect, <a href="${escapeHtml(ret)}">click here</a>.</p>
+<script>location.replace(${JSON.stringify(ret)});</script></body>`;
   const headers = new Headers({ "Content-Type": "text/html; charset=utf-8" });
   headers.append("Set-Cookie", setCookie(self, session, SESSION_TTL));
   return new Response(html, { status: 200, headers });
