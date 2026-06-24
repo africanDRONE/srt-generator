@@ -264,7 +264,7 @@
 <div class="wrap" id="top">
   <section class="hero" id="hero">
     <h1 class="hero-title">Subtitle your film in any language,<br><span class="gradient-text">even the ones Adobe and YouTube can't.</span></h1>
-    <p class="hero-sub">Hand the video to a translator with one link. They add the subtitles right in their browser, on top of the picture, with <strong>no editing software and no training</strong>. You get clean, <strong>festival-ready .srt or .vtt</strong> back.</p>
+    <p class="hero-sub">Hand a translator one link. They subtitle it in the browser, right on the video, with <strong>no software and no training</strong>. You get clean, <strong>festival-ready .srt or .vtt</strong> back.</p>
 
     <div class="url-launch">
       <input type="text" id="yt-url" placeholder="Paste a video link to start…" autocomplete="off" />
@@ -278,7 +278,7 @@
     </div>
     <div id="upload-progress" class="upload-progress" hidden><div class="bar"><div class="fill"></div></div><div class="label">Uploading… 0%</div></div>
     <div id="source-msg" class="source-msg" hidden></div>
-    <div class="sources">Captioning works with <b>YouTube</b>, <b>Vimeo</b>, <b>Frame.io</b>, <b>Rushes.cc</b>, <b>Dropbox</b>, <b>Google Drive</b>, and direct video files. For <b>auto-transcribe</b>, the most reliable sources are a <b>direct/S3 link</b>, <b>Dropbox</b>, or <b>Frame.io</b> (YouTube/Vimeo can't be auto-transcribed).</div>
+    <div class="sources">We accept <b>YouTube</b>, <b>Vimeo</b>, <b>Frame.io</b>, <b>Rushes.cc</b>, <b>Dropbox</b>, <b>Google Drive</b>, and direct video files.</div>
     <div class="hero-foot">
       <button class="try-sample" id="try-sample">▶ Try it with a sample video</button>
     </div>
@@ -1467,6 +1467,12 @@ async function importSubs(file){
 }
 async function autoTranscribe(){
   if (!currentSourceUrl) { toast("Load a video first", "error"); return; }
+  if (kind === "yt" || kind === "vimeo") {
+    const n = document.getElementById("source-note");
+    if (n) { n.className = "source-msg warn"; n.textContent = "YouTube and Vimeo block audio download, so auto-transcribe can't read them. Upload the file, or paste a direct, Dropbox, Drive, or Frame.io link, then auto-generate. You can still caption this video by hand."; n.hidden = false; }
+    toast("Can't auto-transcribe YouTube or Vimeo", "error");
+    return;
+  }
   if (captions.length && !(await confirmModal("Replace your current captions with auto-generated ones?", "Replace"))) return;
   const btn = document.getElementById("auto-btn");
   const label = btn.innerHTML;
