@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>SubCaptions: Subtitle any video, without leaving your browser</title>
-<meta name="description" content="Subtitle any video by hand, for when auto-captions miss the mark or your language isn't supported by YouTube or Adobe. Paste a link, caption on top of the video, export .srt or .vtt, hand it to a translator, or translate into 50+ languages side by side. Free, no signup." />
+<title>SubCaptions: subtitle film in any language, hand it to a translator in the browser</title>
+<meta name="description" content="Professional subtitling for documentary, corporate, and festival work. Caption and translate video in any language, including ones Adobe and YouTube can't transcribe. Hand a video to a translator with one link and they add the subtitles in their browser, no editing software, no training. Export festival-ready SRT and VTT." />
 <link rel="canonical" href="https://subcaptions.com/" />
 <link rel="icon" type="image/svg+xml" href="/assets/logo.svg" />
 <link rel="icon" type="image/png" sizes="32x32" href="/assets/logo-32.png" />
@@ -154,6 +154,8 @@
   .auto-btn{background:#fff;border:1px solid var(--brand2);color:var(--brand2);padding:12px;font-size:14px;display:flex;align-items:center;justify-content:center;gap:8px}
   .auto-btn:hover{background:var(--grad-soft)}
   .auto-btn:disabled{opacity:.6;cursor:not-allowed}
+  .import-btn{margin-top:8px;background:#fff;border:1px solid var(--border-strong);color:var(--text-soft);font-size:13px;padding:9px}
+  .import-btn:hover{border-color:var(--brand2);color:var(--brand2)}
   .pro-tag{background:var(--grad);color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:999px;letter-spacing:.4px}
   .lock-banner{display:none;background:#fef3c7;border:1px solid #fcd34d;color:#92400e;border-radius:12px;padding:12px 16px;margin-bottom:16px;font-size:13.5px;font-weight:500}
   .lock-banner.show{display:block}
@@ -258,8 +260,8 @@
 
 <div class="wrap" id="top">
   <section class="hero" id="hero">
-    <h1 class="hero-title">Subtitle any video,<br><span class="gradient-text">without leaving your browser</span></h1>
-    <p class="hero-sub">Paste a link, type captions <strong>in time with the video</strong>, and export a clean <strong>.srt</strong>, <strong>completely free, no signup</strong>. Solo adds AI auto-captions and unlimited translations.</p>
+    <h1 class="hero-title">Subtitle your film in any language,<br><span class="gradient-text">even the ones Adobe and YouTube can't.</span></h1>
+    <p class="hero-sub">Hand the video to a translator with one link. They add the subtitles right in their browser, on top of the picture, with <strong>no editing software and no training</strong>. You get clean, <strong>festival-ready .srt or .vtt</strong> back.</p>
 
     <div class="url-launch">
       <input type="text" id="yt-url" placeholder="Paste a video link to start…" autocomplete="off" />
@@ -306,6 +308,8 @@
         <div class="panel control-card">
           <button class="btn auto-btn" id="auto-btn">✨ Auto-generate captions <span class="pro-tag">Solo</span></button>
           <div id="gen-progress" class="gen-progress" hidden><div class="bar"><div class="fill"></div></div><div class="label">Working…</div></div>
+          <button class="btn import-btn" id="import-btn" title="Load an existing .srt or .vtt (e.g. exported from Premiere) onto this video">⬆ Import .srt / .vtt</button>
+          <input type="file" id="import-input" accept=".srt,.vtt,text/plain" hidden />
           <div class="marks">
             <div class="mark">
               <label>In point</label>
@@ -369,8 +373,8 @@
   </section>
 
   <section class="section" id="features">
-    <h2>Built for creators, not editors</h2>
-    <p class="lead">The fastest way to caption a video you don't want to load into Premiere.</p>
+    <h2>Built for translators and film teams</h2>
+    <p class="lead">Documentary, corporate, and festival subtitling in any language, without a captioning vendor or an editing suite.</p>
     <div class="feature-grid">
       <div class="feat"><div class="ic">🔗</div><h3>Works with any link</h3><p>YouTube and Vimeo get full playback control. Dropbox, Drive, and direct files play as native video. One editor for every source.</p></div>
       <div class="feat"><div class="ic">🎯</div><h3>See it as you type</h3><p>Your caption renders on the real video the instant you save it, so timing is never a guess.</p></div>
@@ -1375,6 +1379,46 @@ async function ensurePaid(){
   if (tier === "solo" || tier === "team") { IS_PRO = true; return true; }
   return false;
 }
+/* =================== IMPORT .srt / .vtt (Premiere round-trip) =================== */
+// Parse a timestamp: "HH:MM:SS,mmm" (SRT) or "MM:SS.mmm" / "HH:MM:SS.mmm" (VTT).
+function parseTimestamp(s){
+  const m = (s || "").trim().match(/^(?:(\d+):)?(\d+):(\d+)[.,](\d{1,3})$/);
+  if (!m) return null;
+  return (m[1] ? +m[1] : 0) * 3600 + (+m[2]) * 60 + (+m[3]) + parseInt((m[4] + "000").slice(0, 3), 10) / 1000;
+}
+function parseSubs(text){
+  text = (text || "").replace(/^﻿/, "").replace(/\r/g, "");
+  const cues = [];
+  for (const block of text.split(/\n\s*\n/)){
+    const lines = block.split("\n");
+    let ti = -1, t1 = null, t2 = null;
+    for (let j = 0; j < lines.length; j++){
+      const a = lines[j].split("-->");
+      if (a.length === 2){
+        const s = parseTimestamp(a[0]);                       // start
+        const e = parseTimestamp(a[1].trim().split(/\s+/)[0]); // end (drop any VTT cue settings)
+        if (s != null && e != null){ ti = j; t1 = s; t2 = e; break; }
+      }
+    }
+    if (ti < 0) continue;
+    const txt = lines.slice(ti + 1).filter(l => l.trim() && !/^WEBVTT/i.test(l)).map(l => l.replace(/<[^>]+>/g, "").trim());
+    if (t2 > t1 && txt.length) cues.push({ start: t1, end: t2, text: txt.join("\n") });
+  }
+  return cues;
+}
+async function importSubs(file){
+  if (!file) return;
+  if (!currentKey) { toast("Load a video first, then import captions onto it.", "error"); return; }
+  let text = ""; try { text = await file.text(); } catch(e){ toast("Couldn't read that file.", "error"); return; }
+  const cues = parseSubs(text);
+  if (!cues.length) { toast("No captions found in that .srt/.vtt.", "error"); return; }
+  if (captions.length && !(await confirmModal("Replace the current captions with the imported file (" + cues.length + " cues)?", "Replace"))) return;
+  captions = cues.map(c => { const w = (c.text || "").split("\n"); return { start: c.start, end: c.end, line1: w[0] || "", line2: w.slice(1).join(" ") }; });
+  captions.sort((a, b) => a.start - b.start);
+  translations = {}; overlayTrack = "source";
+  fitProject(); persist(); renderColumns();
+  toast("Imported " + captions.length + " captions", "success");
+}
 async function autoTranscribe(){
   if (!currentSourceUrl) { toast("Load a video first", "error"); return; }
   if (captions.length && !(await confirmModal("Replace your current captions with auto-generated ones?", "Replace"))) return;
@@ -1569,6 +1613,8 @@ function toast(msg, type){
   document.getElementById("burn-btn").addEventListener("click", burnVideo);
   document.getElementById("fs-btn").addEventListener("click", toggleFullscreen);
   document.getElementById("share-btn").addEventListener("click", shareProject);
+  const impBtn = document.getElementById("import-btn"), impIn = document.getElementById("import-input");
+  if (impBtn && impIn){ impBtn.addEventListener("click", () => impIn.click()); impIn.addEventListener("change", e => { const f = e.target.files && e.target.files[0]; if (f) importSubs(f); impIn.value = ""; }); }
   document.getElementById("line1").addEventListener("input", handleLine1Input);
 
   // event delegation for the columns area
