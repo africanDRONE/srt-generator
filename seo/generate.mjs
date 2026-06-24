@@ -64,7 +64,6 @@ ${jsonLd ? `<script type="application/ld+json">${JSON.stringify(jsonLd)}</script
   <main>${bodyHtml}</main>
   <footer class="site">
     <div><a href="/">Caption</a> · <a href="/translate.html">Translate</a> · <a href="/pricing.html">Pricing</a> · <a href="/privacy.html">Privacy</a> · <a href="/terms.html">Terms</a></div>
-    <div class="fine">${esc(SITE.name)}, ${esc(SITE.tagline)} Files are parsed in your browser and never stored.</div>
   </footer>
 </div>
 <script type="module" src="/lib/auth.js"></script>
