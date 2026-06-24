@@ -50,13 +50,13 @@ export default {
 
       if (url.pathname === "/reset") {
         const headers = new Headers({ "Content-Type": "text/html" });
-        headers.append("Set-Cookie", `${COOKIE}=; HttpOnly; Secure; SameSite=None; Path=/; Max-Age=0`);
+        headers.append("Set-Cookie", setCookie(self, "", 0));
         return new Response("<h2>Frame.io connection reset.</h2><p>You can close this tab and reconnect from the app.</p>", { status: 200, headers });
       }
       if (url.pathname === "/start") return await start(url, env, self);
       if (url.pathname === "/callback") return await callback(url, env, self);
       if (url.pathname === "/resolve") return await resolve(request, url, env, cors);
-      if (url.pathname === "/disconnect" && request.method === "POST") return await disconnect(request, env, cors, origin);
+      if (url.pathname === "/disconnect" && request.method === "POST") return await disconnect(request, env, cors, origin, self);
       return json({ error: "Not found" }, 404, cors);
     } catch (e) {
       return json({ error: e.message || "Server error" }, 500, cors);
@@ -106,7 +106,7 @@ async function callback(url, env, self) {
   await saveTokens(env, session, tok);
 
   const headers = new Headers({ Location: ret });
-  headers.append("Set-Cookie", `${COOKIE}=${session}; HttpOnly; Secure; SameSite=None; Path=/; Max-Age=${SESSION_TTL}`);
+  headers.append("Set-Cookie", setCookie(self, session, SESSION_TTL));
   return new Response(null, { status: 302, headers });
 }
 
@@ -167,12 +167,21 @@ async function resolve(request, url, env, cors) {
   return json({ download_url: dl, name: file?.data?.name || null }, 200, cors);
 }
 
-async function disconnect(request, env, cors, origin) {
+async function disconnect(request, env, cors, origin, self) {
   const session = cookie(request, COOKIE);
   if (session) await env.TOKENS.delete("sess:" + session);
   const headers = new Headers({ "Content-Type": "application/json", ...cors });
-  headers.append("Set-Cookie", `${COOKIE}=; HttpOnly; Secure; SameSite=None; Path=/; Max-Age=0`);
+  headers.append("Set-Cookie", setCookie(self, "", 0));
   return new Response(JSON.stringify({ ok: true }), { status: 200, headers });
+}
+
+// Session cookie. Now that this Worker lives on frameio.subcaptions.com, the cookie is
+// scoped to the parent domain with SameSite=Lax, so it's first-party to the app and
+// Safari keeps it. (SameSite=None looked cross-site and Safari dropped it.)
+function setCookie(self, value, maxAge) {
+  let dom = "";
+  try { if (/(^|\.)subcaptions\.com$/i.test(new URL(self).hostname)) dom = "; Domain=.subcaptions.com"; } catch {}
+  return `${COOKIE}=${value}; HttpOnly; Secure; SameSite=Lax${dom}; Path=/; Max-Age=${maxAge}`;
 }
 
 /* ---------- helpers ---------- */
