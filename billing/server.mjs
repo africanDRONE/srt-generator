@@ -143,8 +143,12 @@ app.post("/billing/checkout", async (req, res) => {
     client_reference_id: user.id,
     ...(profile?.stripe_customer_id ? { customer: profile.stripe_customer_id } : { customer_email: user.email }),
     allow_promotion_codes: true,
+    // Don't force a card when nothing is due now and never will be (e.g. a 100%-off
+    // forever promo code for a friend/influencer). Paying customers still get the card
+    // prompt because their amount due is > 0.
+    payment_method_collection: "if_required",
     success_url: `${process.env.APP_URL}/?upgraded=1`,
-    cancel_url: `${process.env.APP_URL}/pricing.html`,
+    cancel_url: `${process.env.APP_URL}/pricing`,
   });
   res.json({ url: session.url });
 });
