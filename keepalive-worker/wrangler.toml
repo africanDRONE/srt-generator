@@ -1,0 +1,13 @@
+name = "subcaptions-keepalive"
+main = "keepalive.js"
+compatibility_date = "2026-01-01"
+
+# Once a day at 12:00 UTC. Supabase pauses after 7 days of low DB activity, so daily
+# leaves a very wide safety margin even if a run or two is missed.
+[triggers]
+crons = ["0 12 * * *"]
+
+# Publishable (browser-safe) key only. Never put the service-role key here.
+[vars]
+SUPABASE_URL      = "https://knuprwhbesymksfcaqav.supabase.co"
+SUPABASE_ANON_KEY = "sb_publishable_XY_o9FB8t6SLX5GF0Cb6yg_Ow-7EPrg"
