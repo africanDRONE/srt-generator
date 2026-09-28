@@ -5,8 +5,45 @@ compatibility_date = "2026-01-01"
 # Public config (non-secret). Override per environment as needed.
 [vars]
 MODEL = "claude-haiku-4-5"     # cheap + good for subtitles; bump to claude-sonnet-4-6 for higher quality
-ALLOWED_ORIGIN = "*"            # set to "https://yourdomain.com" before launch
+# Sites allowed to call the translator from a browser. "*" is ignored by the Worker.
+ALLOWED_ORIGIN = "https://subcaptions.com,https://www.subcaptions.com,https://subcaptions.johnnie-miller.workers.dev"
+ALLOW_LOCALHOST = "true"        # also allow http://localhost, 127.0.0.1 and [::1] on any port (development)
 MAX_CUES = "60"                 # hard per-request cap (abuse guard)
+MAX_CUE_CHARS = "1000"          # longest single caption
+MAX_REQUEST_CHARS = "20000"     # most caption text in one request (the pages send 20 cues at a time)
 
-# Secret (do NOT put the key here). Set it with:
+# Daily quotas, reset at midnight UTC. One request costs 500 plus the length of each
+# caption (at least 40 per caption; characters other than printable ASCII count three
+# times, a line break inside a caption counts as five).
+# These numbers are a starting point, adjust freely.
+FREE_DAILY_CHARS = "150000"        # per IP address, free and anonymous use
+FREE_POOL_DAILY_CHARS = "3000000"  # all free use together, the ceiling on free spend per day
+SOLO_DAILY_CHARS = "1000000"       # per Solo account
+TEAM_DAILY_CHARS = "2000000"       # per Team account
+
+# Plan check. Same Supabase project as the upload Worker.
+SUPABASE_URL = "https://knuprwhbesymksfcaqav.supabase.co"
+
+# Secrets (do NOT put them here). Set them with:
 #   wrangler secret put ANTHROPIC_API_KEY
+#   wrangler secret put SUPABASE_ANON_KEY
+# Without SUPABASE_ANON_KEY the plan check is off and paid users get the free limits.
+
+# Burst limit per IP address. Optional: the Worker runs without this block, and the daily
+# quota below still applies. Counted per Cloudflare location. Needs wrangler 4.36.0 or later.
+[[ratelimits]]
+name = "RL_IP"
+namespace_id = "4101"
+
+  [ratelimits.simple]
+  limit = 120
+  period = 60
+
+# Daily quota counters (required). The Worker refuses to translate without this binding.
+[[durable_objects.bindings]]
+name = "QUOTA"
+class_name = "Quota"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Quota"]
