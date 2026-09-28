@@ -224,6 +224,14 @@ test("C11 (index.html): a clean re-translate replaces every line, including a co
   page.context.fetch = async (_url, opts) => ok(sentCues(opts));
   await page.context.translateCaptions();
   assert.deepEqual(page.get("translations.de.lines"), Array.from({ length: 5 }, (_, i) => "TR:src" + i));
+  assert.deepEqual(page.toasts.at(-1), { msg: "Updated German column", type: "success" });
+});
+
+test("C14 (index.html): a clean run for a new language says the column was added", async () => {
+  const page = loadEditor(5, null);
+  page.context.fetch = async (_url, opts) => ok(sentCues(opts));
+  await page.context.translateCaptions();
+  assert.deepEqual(page.get("translations.de.lines"), Array.from({ length: 5 }, (_, i) => "TR:src" + i));
   assert.deepEqual(page.toasts.at(-1), { msg: "Added German column", type: "success" });
 });
 

@@ -1455,7 +1455,7 @@ async function translateCaptions(){
     else if (r.error) toast(`${meta.name} stopped after ${r.translated} of ${texts.length} lines. ${r.error.reason || "Translation failed."} ${keep ? "The translated lines were kept." : `Your ${meta.name} column was left as it was.`} Press Translate to retry.`, "error");
     else if (r.missing && had) toast(`Updated ${meta.name} column, but ${r.missing} line${r.missing > 1 ? "s" : ""} could not be translated and ${r.missing > 1 ? "were left as they were" : "was left as it was"}.`, "error");
     else if (r.missing) toast(`Added ${meta.name} column, but ${r.missing} line${r.missing > 1 ? "s" : ""} could not be translated. Fill ${r.missing > 1 ? "them" : "it"} in by hand.`, "error");
-    else toast(`Added ${meta.name} column`, "success");
+    else toast(`${had ? "Updated" : "Added"} ${meta.name} column`, "success");
   } catch(e) {
     renderColumns();
     toast(e.message || "Translation failed", "error");
