@@ -1440,16 +1440,20 @@ async function translateCaptions(){
   colsEl.scrollLeft = colsEl.scrollWidth;
   try {
     const texts = captions.map(c => [c.line1,c.line2].filter(Boolean).join("\n"));
-    const out = texts.map(() => "");
+    // A re-translate starts from a copy of the column, so a line that cannot be translated
+    // keeps the text it had.
+    const had = translations[code] ? translations[code].lines : null;
+    const out = texts.map((_, i) => (had && had[i]) || "");
     const r = await translateLines(texts, code, out);
     // A failure part of the way through keeps the lines that were translated before it,
     // unless this language already has a column, which is then left as it was.
-    const keep = r.translated > 0 && !(r.error && translations[code]);
+    const keep = r.translated > 0 && !(r.error && had);
     if (keep) { translations[code] = { name: meta.name, flag: meta.flag, lines: out }; persist(); }
     renderColumns();
     colsEl.scrollLeft = colsEl.scrollWidth;
     if (!r.translated) toast(r.error ? (r.error.message || "Translation failed") : "None of the lines could be translated. Please try again.", "error");
     else if (r.error) toast(`${meta.name} stopped after ${r.translated} of ${texts.length} lines. ${r.error.reason || "Translation failed."} ${keep ? "The translated lines were kept." : `Your ${meta.name} column was left as it was.`} Press Translate to retry.`, "error");
+    else if (r.missing && had) toast(`Updated ${meta.name} column, but ${r.missing} line${r.missing > 1 ? "s" : ""} could not be translated and ${r.missing > 1 ? "were left as they were" : "was left as it was"}.`, "error");
     else if (r.missing) toast(`Added ${meta.name} column, but ${r.missing} line${r.missing > 1 ? "s" : ""} could not be translated. Fill ${r.missing > 1 ? "them" : "it"} in by hand.`, "error");
     else toast(`Added ${meta.name} column`, "success");
   } catch(e) {
