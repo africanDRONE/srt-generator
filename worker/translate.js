@@ -16,6 +16,9 @@
  *   MODEL              (optional, default claude-opus-4-8, see cost note below)
  *   ALLOWED_ORIGIN     (optional, default "*"; set to your domain in production)
  *   MAX_CUES           (optional, default 60, hard cap per request, abuse guard)
+ *   UPSTREAM_TIMEOUT_MS (optional, default 30000, longest wait for one Anthropic call)
+ *   DEADLINE_MS        (optional, default 40000, no Anthropic call runs past this point in a
+ *                       request; keep it below the pages' 45 second request timeout)
  *
  * Cost note: claude-opus-4-8 is premium ($5/$25 per MTok). For a high-volume
  * free tool you will almost certainly want MODEL=claude-haiku-4-5 ($1/$5) or
@@ -56,19 +59,26 @@ export default {
     const model = env.MODEL || DEFAULT_MODEL;
     const srcLabel = source && source !== "auto" ? source : "the source language (auto-detect it)";
 
-    // Number the cues so the model returns one translation per entry, in order.
-    const numbered = cues.map((t, i) => `[${i + 1}] ${String(t).replace(/\n/g, " ⏎ ")}`).join("\n");
+    // Number the cues. The model returns each translation with its entry number, so a merged,
+    // split or dropped entry is detected by number and never shifts the lines after it.
+    const texts = cues.map((t) => String(t));
+    const numbered = texts.map((t, i) => `[${i + 1}] ${t.replace(/\n/g, " ⏎ ")}`).join("\n");
 
     const system =
       "You are a professional subtitle translator. You translate spoken-dialogue captions " +
       "for video. Translate naturally for the spoken register of the target language, not word-for-word. " +
       "Keep each translation concise enough to read on screen in the same time. Preserve the line-break " +
-      "marker ⏎ where it appears (it separates the two on-screen lines). Do not add notes, numbering, or " +
-      "commentary. Return exactly one translation per input entry, in the same order.";
+      "marker ⏎ where it appears (it separates the two on-screen lines). Do not add notes or commentary. " +
+      "The entries are consecutive captions cut from continuous speech, so one sentence often runs " +
+      "across several entries. Each entry is shown on screen at its own time, so every entry needs its " +
+      "own translation: never merge two entries into one, never split one entry into two, and never " +
+      "leave an entry out or empty, even when the sentence continues in the next entry. When the target " +
+      "language needs a different word order, keep each entry's share of the sentence in that entry. " +
+      "Return one item per entry, in order, with n set to the entry number and text set to its translation.";
 
     const userMsg =
-      `Translate these ${cues.length} subtitle entries from ${srcLabel} into ${target}. ` +
-      `Return JSON only.\n\n${numbered}`;
+      `Translate these ${texts.length} subtitle entries from ${srcLabel} into ${target}. ` +
+      `Return JSON only, with exactly ${texts.length} items numbered 1 to ${texts.length}.\n\n${numbered}`;
 
     const body = {
       model,
@@ -82,7 +92,15 @@ export default {
           schema: {
             type: "object",
             properties: {
-              translations: { type: "array", items: { type: "string" } },
+              translations: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: { n: { type: "integer" }, text: { type: "string" } },
+                  required: ["n", "text"],
+                  additionalProperties: false,
+                },
+              },
             },
             required: ["translations"],
             additionalProperties: false,
@@ -91,11 +109,20 @@ export default {
       },
     };
 
-    // Retry transient upstream failures (network error, 429, 5xx) up to 3 times
-    // so a momentary Anthropic blip doesn't fail the whole translation.
+    // No Anthropic call runs past the deadline, so the Worker stops working on a request
+    // around the time the page gives up on it.
+    const upstreamTimeoutMs = positiveInt(env.UPSTREAM_TIMEOUT_MS, 30000);
+    const deadline = Date.now() + positiveInt(env.DEADLINE_MS, 40000);
+
+    // One Anthropic call. Returns { ok, status, data }, or null for a network error or a timeout.
     const callAnthropic = async () => {
+      // Give up on a call that hangs. The timer also covers reading the body, which can
+      // stall after the headers arrive.
+      const ctrl = new AbortController();
+      const wait = Math.max(1, Math.min(upstreamTimeoutMs, deadline - Date.now()));
+      const timer = setTimeout(() => ctrl.abort(), wait);
       try {
-        return await fetch("https://api.anthropic.com/v1/messages", {
+        const resp = await fetch("https://api.anthropic.com/v1/messages", {
           method: "POST",
           headers: {
             "x-api-key": env.ANTHROPIC_API_KEY,
@@ -103,18 +130,36 @@ export default {
             "content-type": "application/json",
           },
           body: JSON.stringify(body),
+          signal: ctrl.signal,
         });
+        let data = null;
+        if (resp.ok) {
+          try {
+            data = await resp.json();
+          } catch {
+            if (ctrl.signal.aborted) return null;
+          }
+        }
+        return { ok: resp.ok, status: resp.status, data };
       } catch {
         return null;
+      } finally {
+        clearTimeout(timer);
       }
     };
+
+    // Retry transient upstream failures (network error, timeout, 429, 5xx) up to 3 times
+    // so a momentary Anthropic blip doesn't fail the whole translation.
     let resp = null;
     for (let attempt = 1; attempt <= 3; attempt++) {
       resp = await callAnthropic();
       if (resp && resp.ok) break;
       const retryable = !resp || resp.status === 429 || resp.status >= 500;
       if (!retryable || attempt === 3) break;
-      await new Promise((r) => setTimeout(r, 500 * attempt));
+      // Skip the pause and the next call when the pause itself would reach the deadline.
+      const pause = 500 * attempt;
+      if (Date.now() + pause >= deadline) break;
+      await new Promise((r) => setTimeout(r, pause));
     }
     if (!resp) return json({ error: "Upstream request failed" }, 502, cors);
     if (!resp.ok) {
@@ -122,30 +167,51 @@ export default {
       return json({ error: "Translation provider error", status: resp.status }, 502, cors);
     }
 
-    const data = await resp.json();
+    const data = resp.data;
+    if (!data) return json({ error: "Could not parse translation" }, 502, cors);
     if (data.stop_reason === "refusal") {
       return json({ error: "Content was declined by the translator." }, 422, cors);
     }
 
     // output_config.format guarantees the first text block is valid JSON for the schema.
     const textBlock = (data.content || []).find((b) => b.type === "text");
-    let translations;
+    let items;
     try {
-      translations = JSON.parse(textBlock.text).translations;
+      items = JSON.parse(textBlock.text).translations;
     } catch {
       return json({ error: "Could not parse translation" }, 502, cors);
     }
 
+    // The pages match on this exact error string, then split the batch and send the parts
+    // again, so keep it stable.
+    const translations = alignByNumber(items, texts);
+    if (!translations) return json({ error: "Translation count mismatch" }, 502, cors);
+
     // Restore the line-break marker the model was asked to preserve.
-    translations = translations.map((t) => String(t).replace(/\s*⏎\s*/g, "\n"));
-
-    if (translations.length !== cues.length) {
-      return json({ error: "Translation count mismatch" }, 502, cors);
-    }
-
-    return json({ translations }, 200, cors);
+    return json({ translations: translations.map((t) => t.replace(/\s*⏎\s*/g, "\n")) }, 200, cors);
   },
 };
+
+// Place each returned item on its entry number. Returns null unless every entry from 1 to
+// texts.length arrives exactly once, with text for every cue that had text. An empty text is
+// rejected because a model that merges two entries tends to leave the second one empty.
+function alignByNumber(items, texts) {
+  if (!Array.isArray(items) || items.length !== texts.length) return null;
+  const out = new Array(texts.length).fill(null);
+  for (const item of items) {
+    const n = item && item.n;
+    if (!Number.isInteger(n) || n < 1 || n > texts.length || out[n - 1] !== null) return null;
+    if (typeof item.text !== "string") return null;
+    if (!item.text.trim() && texts[n - 1].trim()) return null;
+    out[n - 1] = item.text;
+  }
+  return out;
+}
+
+function positiveInt(value, fallback) {
+  const n = parseInt(value, 10);
+  return Number.isFinite(n) && n > 0 ? n : fallback;
+}
 
 function json(obj, status, cors) {
   return new Response(JSON.stringify(obj), {
