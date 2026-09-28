@@ -1334,16 +1334,95 @@ function alignOneRow(i){
 }
 
 /* =================== TRANSLATE =================== */
-async function translateBatch(texts, target){
+const SPLIT_BUDGET = 12;  // extra Worker requests one batch may spend on splitting after the Worker rejects it
+const REQUEST_TIMEOUT_MS = 45000;  // a 20-line batch normally answers in 4 to 6 seconds
+// reason says what went wrong and advice says what to do next. The message joins the two.
+function translateError(reason, advice, flags){
+  const e = new Error(reason + " " + advice);
+  e.reason = reason;
+  return Object.assign(e, flags);
+}
+// One request to the Worker. Errors carry flags so the callers can choose a recovery:
+// split (the Worker rejected the batch for its content: the model returned a different number of
+// lines than it was sent, or declined the text, and a smaller batch narrows that down), transient
+// (timeout, network failure, rate limit or 5xx, worth one more attempt) and wait (ms before that attempt).
+async function requestBatch(texts, target){
   if (DEMO) { await new Promise(r => setTimeout(r, 450)); return texts.map(t => `[${target}] ` + t); }
-  const res = await fetch(API_BASE.replace(/\/$/,"") + "/translate", {
-    method:"POST", headers:{ "Content-Type":"application/json" },
-    body: JSON.stringify({ source:"auto", target, cues: texts })
-  });
-  if (!res.ok) throw new Error("Translation failed (" + res.status + ")");
-  const data = await res.json();
-  if (!data.translations || data.translations.length !== texts.length) throw new Error("Unexpected response");
+  // Abort a request that hangs, so the run moves on to a retry instead of stalling.
+  // The timer also covers reading the body, which can stall after the headers arrive.
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), REQUEST_TIMEOUT_MS);
+  let res, data = null;
+  try {
+    res = await fetch(API_BASE.replace(/\/$/,"") + "/translate", {
+      method:"POST", headers:{ "Content-Type":"application/json" },
+      body: JSON.stringify({ source:"auto", target, cues: texts }), signal: ctrl.signal
+    });
+    try { data = await res.json(); } catch(err) { if (ctrl.signal.aborted) throw err; }
+  } catch(err) {
+    if (ctrl.signal.aborted) throw translateError("The translation server took too long to answer.", "Please try again.", { transient: true });
+    throw translateError("Couldn't reach the translation server.", "Check your connection and try again.", { transient: true });
+  } finally { clearTimeout(timer); }
+  if (res.status === 429) throw translateError("Rate limit reached.", "Try again shortly.", { transient: true, wait: 4000 });
+  if (!res.ok) {
+    const split = res.status === 422 || (!!data && data.error === "Translation count mismatch");
+    throw translateError("Translation failed (" + res.status + ").", "Please try again.", { split, transient: !split && res.status >= 500 });
+  }
+  if (!data || !Array.isArray(data.translations)) {
+    throw translateError("Unexpected response from the translation server.", "Please try again.", { transient: true });
+  }
+  if (data.translations.length !== texts.length) {
+    throw translateError("Unexpected response from the translation server.", "Please try again.", { split: true });
+  }
   return data.translations;
+}
+// requestBatch plus one more attempt after a transient failure, paid from the budget.
+async function requestWithRetry(texts, target, budget){
+  try { return await requestBatch(texts, target); }
+  catch(e) {
+    if (!e.transient || budget.left < 1) throw e;
+    budget.left--;
+    await new Promise(r => setTimeout(r, e.wait || 1200));
+    return requestBatch(texts, target);
+  }
+}
+// Returns one entry per input line. null marks a line that could not be translated.
+// The model sometimes merges or splits lines that are fragments of one sentence, and the Worker
+// then rejects the whole batch. A smaller batch nearly always passes, so a rejected batch is
+// split in half and each half is sent again. budget.left caps the extra requests a batch may
+// spend, so one batch never costs more than 1 + SPLIT_BUDGET requests. When the budget runs out,
+// the lines still rejected come back as null and the rest is kept.
+async function translateBatch(texts, target, budget){
+  try { return await requestWithRetry(texts, target, budget); }
+  catch(e) {
+    if (!e.split) throw e;
+    if (texts.length === 1) {
+      if (budget.left < 1) return [null];
+      budget.left--;
+      try { return await requestWithRetry(texts, target, budget); }
+      catch(e2) { if (e2.split) return [null]; throw e2; }
+    }
+    if (budget.left < 2) return texts.map(() => null);
+    budget.left -= 2;
+    const mid = Math.ceil(texts.length / 2);
+    const a = await translateBatch(texts.slice(0, mid), target, budget);
+    const b = await translateBatch(texts.slice(mid), target, budget);
+    return a.concat(b);
+  }
+}
+// Translates texts batch by batch and writes each result into lines at the same index. A line
+// that could not be translated is left as it was. The run stops at the first error that
+// retrying and splitting did not get past and returns it, so the caller can keep the lines
+// translated up to that point.
+async function translateLines(texts, target, lines){
+  let translated = 0, missing = 0, error = null;
+  for (let i=0;i<texts.length;i+=20){
+    let t;
+    try { t = await translateBatch(texts.slice(i,i+20), target, { left: SPLIT_BUDGET }); }
+    catch(e) { error = e; break; }
+    for (let j=0;j<t.length;j++){ if (t[j] == null) missing++; else { lines[i+j] = t[j]; translated++; } }
+  }
+  return { translated, missing, error };
 }
 async function translateCaptions(){
   if (!captions.length) { toast("Make some captions first", "error"); return; }
@@ -1361,13 +1440,18 @@ async function translateCaptions(){
   colsEl.scrollLeft = colsEl.scrollWidth;
   try {
     const texts = captions.map(c => [c.line1,c.line2].filter(Boolean).join("\n"));
-    const out = [];
-    for (let i=0;i<texts.length;i+=20){ const t = await translateBatch(texts.slice(i,i+20), code); out.push(...t); }
-    translations[code] = { name: meta.name, flag: meta.flag, lines: out };
-    persist();
+    const out = texts.map(() => "");
+    const r = await translateLines(texts, code, out);
+    // A failure part of the way through keeps the lines that were translated before it,
+    // unless this language already has a column, which is then left as it was.
+    const keep = r.translated > 0 && !(r.error && translations[code]);
+    if (keep) { translations[code] = { name: meta.name, flag: meta.flag, lines: out }; persist(); }
     renderColumns();
     colsEl.scrollLeft = colsEl.scrollWidth;
-    toast(`Added ${meta.name} column`, "success");
+    if (!r.translated) toast(r.error ? (r.error.message || "Translation failed") : "None of the lines could be translated. Please try again.", "error");
+    else if (r.error) toast(`${meta.name} stopped after ${r.translated} of ${texts.length} lines. ${r.error.reason || "Translation failed."} ${keep ? "The translated lines were kept." : `Your ${meta.name} column was left as it was.`} Press Translate to retry.`, "error");
+    else if (r.missing) toast(`Added ${meta.name} column, but ${r.missing} line${r.missing > 1 ? "s" : ""} could not be translated. Fill ${r.missing > 1 ? "them" : "it"} in by hand.`, "error");
+    else toast(`Added ${meta.name} column`, "success");
   } catch(e) {
     renderColumns();
     toast(e.message || "Translation failed", "error");
@@ -1636,7 +1720,8 @@ let toastTimer = null;
 function toast(msg, type){
   const el = document.getElementById("toast");
   el.textContent = msg; el.className = "toast show" + (type ? " " + type : "");
-  clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove("show"), 1900);
+  // An error stays up long enough to read: 6 seconds, or longer for a long message.
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove("show"), type === "error" ? Math.max(6000, msg.length * 70) : 1900);
 }
 
 /* =================== INIT =================== */

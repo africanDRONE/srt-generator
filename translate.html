@@ -162,6 +162,8 @@
 <script>
 const API_BASE = "https://subtitle-translate.johnnie-miller.workers.dev";
 const FREE_LINE_LIMIT = 200, BATCH_SIZE = 20, DEMO = !API_BASE;
+const SPLIT_BUDGET = 12;  // extra Worker requests one batch may spend on splitting after the Worker rejects it
+const REQUEST_TIMEOUT_MS = 45000;  // a 20-line batch normally answers in 4 to 6 seconds
 const LANGUAGES = [["Spanish","es","🇪🇸"],["French","fr","🇫🇷"],["German","de","🇩🇪"],["Italian","it","🇮🇹"],["Portuguese","pt","🇵🇹"],["Portuguese (Brazil)","pt-BR","🇧🇷"],["Dutch","nl","🇳🇱"],["Russian","ru","🇷🇺"],["Polish","pl","🇵🇱"],["Turkish","tr","🇹🇷"],["Arabic","ar","🇸🇦"],["Hebrew","he","🇮🇱"],["Hindi","hi","🇮🇳"],["Bengali","bn","🇧🇩"],["Urdu","ur","🇵🇰"],["Japanese","ja","🇯🇵"],["Korean","ko","🇰🇷"],["Chinese (Simplified)","zh-CN","🇨🇳"],["Chinese (Traditional)","zh-TW","🇹🇼"],["Vietnamese","vi","🇻🇳"],["Thai","th","🇹🇭"],["Indonesian","id","🇮🇩"],["Malay","ms","🇲🇾"],["Filipino","tl","🇵🇭"],["Ukrainian","uk","🇺🇦"],["Czech","cs","🇨🇿"],["Slovak","sk","🇸🇰"],["Romanian","ro","🇷🇴"],["Hungarian","hu","🇭🇺"],["Greek","el","🇬🇷"],["Bulgarian","bg","🇧🇬"],["Serbian","sr","🇷🇸"],["Croatian","hr","🇭🇷"],["Swedish","sv","🇸🇪"],["Norwegian","no","🇳🇴"],["Danish","da","🇩🇰"],["Finnish","fi","🇫🇮"],["English","en","🇬🇧"],["Persian","fa","🇮🇷"],["Swahili","sw","🇰🇪"],["Tamil","ta","🇮🇳"],["Telugu","te","🇮🇳"],["Marathi","mr","🇮🇳"],["Catalan","ca","🇪🇸"]];
 let cues = [], sourceName = "subtitles", langCols = [];  // langCols: [{code,name,lines:[...]}]
 const SOURCE_KEY = "__source__";
@@ -170,12 +172,84 @@ function tcToSeconds(tc){tc=tc.trim().replace(",",".");const p=tc.split(":");let
 function secondsToTc(sec,vtt){if(sec==null||isNaN(sec))sec=0;if(sec<0)sec=0;const h=Math.floor(sec/3600),m=Math.floor((sec%3600)/60),s=Math.floor(sec%60),ms=Math.round((sec-Math.floor(sec))*1000),sep=vtt?".":",",p=(n,l)=>String(n).padStart(l,"0");return `${p(h,2)}:${p(m,2)}:${p(s,2)}${sep}${p(ms,3)}`;}
 function parseSubtitles(raw){raw=raw.replace(/\r\n/g,"\n").replace(/\r/g,"\n").trim();const isVtt=/^WEBVTT/.test(raw);if(isVtt)raw=raw.replace(/^WEBVTT.*?(\n\n|$)/s,"").trim();const blocks=raw.split(/\n\s*\n/);const out=[];const timeRe=/(\d{1,2}:)?\d{1,2}:\d{2}[.,]\d{1,3}\s*-->\s*(\d{1,2}:)?\d{1,2}:\d{2}[.,]\d{1,3}/;for(const b of blocks){const lines=b.split("\n");let ti=-1;for(let i=0;i<lines.length;i++){if(timeRe.test(lines[i])){ti=i;break;}}if(ti===-1)continue;const m=lines[ti].match(/((?:\d{1,2}:)?\d{1,2}:\d{2}[.,]\d{1,3})\s*-->\s*((?:\d{1,2}:)?\d{1,2}:\d{2}[.,]\d{1,3})/);if(!m)continue;const text=lines.slice(ti+1).map(l=>l.trim()).filter(Boolean).join("\n");if(!text)continue;out.push({index:out.length+1,start:tcToSeconds(m[1]),end:tcToSeconds(m[2]),text,translation:""});}return out;}
 
-async function translateBatch(texts,source,target){
+// reason says what went wrong and advice says what to do next. The message joins the two.
+function translateError(reason,advice,flags){const e=new Error(reason+" "+advice);e.reason=reason;return Object.assign(e,flags);}
+// One request to the Worker. Errors carry flags so the callers can choose a recovery:
+// split (the Worker rejected the batch for its content: the model returned a different number of
+// lines than it was sent, or declined the text, and a smaller batch narrows that down), transient
+// (timeout, network failure, rate limit or 5xx, worth one more attempt) and wait (ms before that attempt).
+async function requestBatch(texts,source,target){
   if(DEMO){await new Promise(r=>setTimeout(r,350));return texts.map(t=>`[${target}] `+t);}
-  const res=await fetch(API_BASE.replace(/\/$/,"")+"/translate",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({source,target,cues:texts})});
-  if(res.status===429)throw new Error("Rate limit reached, try again shortly.");
-  if(!res.ok)throw new Error("Translation failed ("+res.status+")");
-  const d=await res.json();if(!d.translations||d.translations.length!==texts.length)throw new Error("Unexpected response");return d.translations;
+  // Abort a request that hangs, so the run moves on to a retry instead of stalling.
+  // The timer also covers reading the body, which can stall after the headers arrive.
+  const ctrl=new AbortController(), timer=setTimeout(()=>ctrl.abort(),REQUEST_TIMEOUT_MS);
+  let res,d=null;
+  try{
+    res=await fetch(API_BASE.replace(/\/$/,"")+"/translate",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({source,target,cues:texts}),signal:ctrl.signal});
+    try{d=await res.json();}catch(err){if(ctrl.signal.aborted)throw err;}
+  }
+  catch(err){
+    if(ctrl.signal.aborted)throw translateError("The translation server took too long to answer.","Please try again.",{transient:true});
+    throw translateError("Couldn't reach the translation server.","Check your connection and try again.",{transient:true});
+  }
+  finally{clearTimeout(timer);}
+  if(res.status===429)throw translateError("Rate limit reached.","Try again shortly.",{transient:true,wait:4000});
+  if(!res.ok){
+    const split=res.status===422||(!!d&&d.error==="Translation count mismatch");
+    throw translateError("Translation failed ("+res.status+").","Please try again.",{split,transient:!split&&res.status>=500});
+  }
+  if(!d||!Array.isArray(d.translations))throw translateError("Unexpected response from the translation server.","Please try again.",{transient:true});
+  if(d.translations.length!==texts.length)throw translateError("Unexpected response from the translation server.","Please try again.",{split:true});
+  return d.translations;
+}
+// requestBatch plus one more attempt after a transient failure, paid from the budget.
+async function requestWithRetry(texts,source,target,budget){
+  try{return await requestBatch(texts,source,target);}
+  catch(e){
+    if(!e.transient||budget.left<1)throw e;
+    budget.left--;
+    await new Promise(r=>setTimeout(r,e.wait||1200));
+    return requestBatch(texts,source,target);
+  }
+}
+// Returns one entry per input line. null marks a line that could not be translated.
+// The model sometimes merges or splits lines that are fragments of one sentence, and the Worker
+// then rejects the whole batch. A smaller batch nearly always passes, so a rejected batch is
+// split in half and each half is sent again. budget.left caps the extra requests a batch may
+// spend, so one batch never costs more than 1 + SPLIT_BUDGET requests. When the budget runs out,
+// the lines still rejected come back as null and the rest is kept.
+async function translateBatch(texts,source,target,budget){
+  try{return await requestWithRetry(texts,source,target,budget);}
+  catch(e){
+    if(!e.split)throw e;
+    if(texts.length===1){
+      if(budget.left<1)return [null];
+      budget.left--;
+      try{return await requestWithRetry(texts,source,target,budget);}
+      catch(e2){if(e2.split)return [null];throw e2;}
+    }
+    if(budget.left<2)return texts.map(()=>null);
+    budget.left-=2;
+    const mid=Math.ceil(texts.length/2);
+    const a=await translateBatch(texts.slice(0,mid),source,target,budget);
+    const b=await translateBatch(texts.slice(mid),source,target,budget);
+    return a.concat(b);
+  }
+}
+// Translates texts batch by batch and writes each result into lines at the same index. A line
+// that could not be translated is left as it was. The run stops at the first error that
+// retrying and splitting did not get past and returns it, so the caller can keep the lines
+// translated up to that point.
+async function translateLines(texts,source,target,lines,onBatch){
+  let translated=0, missing=0, error=null;
+  for(let i=0;i<texts.length;i+=BATCH_SIZE){
+    let t;
+    try{t=await translateBatch(texts.slice(i,i+BATCH_SIZE),source,target,{left:SPLIT_BUDGET});}
+    catch(e){error=e;break;}
+    for(let j=0;j<t.length;j++){ if(t[j]==null)missing++; else{lines[i+j]=t[j];translated++;} }
+    if(onBatch)onBatch(Math.min(i+BATCH_SIZE,texts.length));
+  }
+  return {translated,missing,error};
 }
 async function addTranslation(){
   if(!cues.length){toast("Add a file or paste text first","error");return;}
@@ -187,17 +261,21 @@ async function addTranslation(){
   document.getElementById("progress-wrap").classList.add("show");
   const col={code,name,lines:cues.map(()=>"")}; langCols.push(col); render(); scrollToEnd();
   try{
-    let done=0;
-    for(let i=0;i<cues.length;i+=BATCH_SIZE){
-      const chunk=cues.slice(i,i+BATCH_SIZE).map(c=>c.text);
-      const t=await translateBatch(chunk,"auto",code);
-      for(let j=0;j<t.length;j++) col.lines[i+j]=t[j];
-      done+=t.length;
-      document.getElementById("progress-fill").style.width=Math.round(done/cues.length*100)+"%";
-      document.getElementById("progress-label").textContent=`Translating ${name}… ${done}/${cues.length}`;
+    const texts=cues.map(c=>c.text);
+    const r=await translateLines(texts,"auto",code,col.lines,done=>{
+      document.getElementById("progress-fill").style.width=Math.round(done/texts.length*100)+"%";
+      document.getElementById("progress-label").textContent=`Translating ${name}… ${done}/${texts.length}`;
       render();
+    });
+    if(!r.translated){
+      langCols=langCols.filter(l=>l!==col); render();
+      toast(r.error?(r.error.message||"Translation failed"):"None of the lines could be translated. Please try again.","error");
     }
-    toast(name+" added","success"); scrollToEnd();
+    // A failure part of the way through keeps the lines that were translated before it.
+    else if(r.error) toast(`${name} stopped after ${r.translated} of ${texts.length} lines. ${r.error.reason||"Translation failed."} The translated lines were kept. To retry, remove the column and add ${name} again.`,"error");
+    else if(r.missing) toast(`${name} added, but ${r.missing} line${r.missing>1?"s":""} could not be translated. Fill in the empty box${r.missing>1?"es":""} by hand.`,"error");
+    else toast(name+" added","success");
+    scrollToEnd();
   }catch(e){
     langCols=langCols.filter(l=>l!==col); render();
     toast(e.message||"Translation failed","error");
@@ -257,7 +335,7 @@ function ingest(raw,name){
 }
 function handleFile(f){if(!f)return;if(f.size>2*1024*1024){toast("File too large (2 MB max free)","error");return;}sourceName=f.name;const r=new FileReader();r.onload=e=>ingest(e.target.result,f.name);r.readAsText(f);}
 // (translate button state is handled inline in addTranslation)
-let toastTimer=null;function toast(msg,type){const el=document.getElementById("toast");el.textContent=msg;el.className="toast show"+(type?" "+type:"");clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.classList.remove("show"),2200);}
+let toastTimer=null;function toast(msg,type){const el=document.getElementById("toast");el.textContent=msg;el.className="toast show"+(type?" "+type:"");clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.classList.remove("show"),type==="error"?Math.max(6000,msg.length*70):2200);}
 (function init(){
   const tgt=document.getElementById("tgt-lang");
   tgt.innerHTML=LANGUAGES.map(([n,c,f])=>`<option value="${c}">${f?f+" ":""}${n}</option>`).join("");tgt.value="es";
