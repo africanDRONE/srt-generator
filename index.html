@@ -426,6 +426,22 @@ const API_BASE = "https://subtitle-translate.johnnie-miller.workers.dev";  // tr
 const DEMO = !API_BASE;
 const TRANSCRIBE_BASE = "https://subcaptions-transcribe.onrender.com";  // Whisper transcription + burn-in service
 const DEMO_TRANSCRIBE = !TRANSCRIBE_BASE;
+// The billing and transcription servers sleep when idle (Render free tier) and take up
+// to a minute to wake. A bare request ahead of need starts that early. no-cors: only the
+// request has to arrive. At most once every five minutes per server per page.
+const _wokeAt = {};
+function wakeServer(base){
+  if (!base || Date.now() - (_wokeAt[base] || 0) < 5 * 60 * 1000 || /bot|crawl|spider|slurp/i.test(navigator.userAgent)) return;
+  _wokeAt[base] = Date.now();
+  try { fetch(base.replace(/\/$/, "") + "/healthz", { mode: "no-cors", cache: "no-store" }).catch(() => {}); } catch (e) {}
+}
+// A paid user with a video that can be transcribed open is likely to auto-generate
+// captions: wake the transcription server now so the click does not wait for it.
+function wakeTranscribe(){
+  if (IS_PRO && currentKey && !reviewerMode && kind !== "yt" && kind !== "vimeo") wakeServer(TRANSCRIBE_BASE);
+}
+// fetch() signal that gives up after ms (no timeout on browsers without AbortSignal.timeout).
+function timeoutSignal(ms){ return typeof AbortSignal !== "undefined" && AbortSignal.timeout ? AbortSignal.timeout(ms) : undefined; }
 const FRAMEIO_BASE = "https://frameio.subcaptions.com";  // Frame.io OAuth + asset-resolve Worker (same-site subdomain)
 const UPLOAD_BASE = "https://subcaptions-upload.johnnie-miller.workers.dev";    // R2 presigned-upload Worker
 const MAX_LINE = 42;
@@ -1295,6 +1311,7 @@ function startEditor(url){
   mount(s);
   renderColumns();
   cloudHydrate(s.key); // if signed in and the cloud has a newer copy, adopt it
+  wakeTranscribe();
 }
 
 /* =================== TRANSLATOR HANDOFF =================== */
@@ -1314,7 +1331,7 @@ async function ensureTeam(){
   try {
     const token = window.SubAuth && SubAuth.token;
     if (token) {
-      const r = await fetch("https://subcaptions.onrender.com/billing/me", { headers: { Authorization: "Bearer " + token } });
+      const r = await fetch("https://subcaptions.onrender.com/billing/me", { headers: { Authorization: "Bearer " + token }, signal: timeoutSignal(60000) });
       if (r.ok) return (await r.json()).tier === "team";
     }
   } catch (e) {}
@@ -1333,10 +1350,15 @@ function teamGateModal(){
 }
 async function shareProject(){
   if (!cloudOn()) { toast("Sign in to hand a project to a translator.", "error"); try { window.SubAuth && SubAuth.signIn && SubAuth.signIn(); } catch(e){} return; }
-  if (!(await ensureTeam())) { teamGateModal(); return; }
-  if (!captions.length) { toast("Add or auto-generate some captions first.", "error"); return; }
-  const btn = document.getElementById("share-btn"); if (btn) btn.disabled = true;
+  const btn = document.getElementById("share-btn");
+  if (btn && btn.disabled) return;
+  const label = btn && btn.innerHTML;
+  // The server can take up to a minute to wake: say so on the button.
+  if (btn) { btn.disabled = true; btn.textContent = "Preparing link…"; }
+  const slow = setTimeout(() => { if (btn) btn.textContent = "Waking the server…"; }, 8000);
   try {
+    if (!(await ensureTeam())) { teamGateModal(); return; }
+    if (!captions.length) { toast("Add or auto-generate some captions first.", "error"); return; }
     const saved = await cloudSaveNow();
     if (saved.status === 409) return; // the conflict notice is up; the link would hand over an old copy
     if (!(saved.status >= 200 && saved.status < 300)) throw new Error(cloudSaveFailMessage(saved.status, saved.error) + " The share link needs the account copy, so it was not created.");
@@ -1346,7 +1368,7 @@ async function shareProject(){
     const j = await r.json();
     shareModal(location.origin + "/?share=" + j.token, j.expires_at, j.token);
   } catch(e){ toast(e.message || "Couldn't create a share link", "error"); }
-  finally { if (btn) btn.disabled = false; }
+  finally { clearTimeout(slow); if (btn) { btn.disabled = false; btn.innerHTML = label; } }
 }
 // A share link's expiry as a date in the reader's own format, or "" if there is none.
 function formatExpiry(iso){
@@ -1427,17 +1449,23 @@ async function enterReviewer(token){
   reviewerMode = true; shareToken = token;
   pauseHeroVideo();
   const editor = document.getElementById("editor");
+  // The server can take up to a minute to wake, so the page says it is working.
+  const wait = document.createElement("div");
+  wait.className = "rev-banner"; wait.setAttribute("role", "status");
+  wait.textContent = "Opening the shared project…";
+  if (editor.parentNode) editor.parentNode.insertBefore(wait, editor);
+  const slow = setTimeout(() => { wait.textContent = "Still opening. The server can take up to a minute to wake up."; }, 8000);
   let d;
   try {
     let r;
-    try { r = await fetch(APP_API + "/share/" + encodeURIComponent(token)); } catch(e){ throw new Error(shareOpenMessage(0)); }
+    try { r = await fetch(APP_API + "/share/" + encodeURIComponent(token), { signal: timeoutSignal(90000) }); } catch(e){ throw new Error(shareOpenMessage(0)); }
     if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error(shareOpenMessage(r.status, j.error)); }
     d = await r.json();
   } catch(e){
     editor.classList.add("show");
     editor.innerHTML = '<div class="rev-banner err">' + escapeHtml(e.message) + '</div>';
     return;
-  }
+  } finally { clearTimeout(slow); wait.remove(); }
   reviewerCanEdit = d.canEdit !== false;
   currentSourceUrl = d.source_url || "";
   currentKey = "share";
@@ -1962,7 +1990,7 @@ async function ensurePaid(){
   try {
     const token = window.SubAuth && SubAuth.token;
     if (token) {
-      const r = await fetch("https://subcaptions.onrender.com/billing/me", { headers: { Authorization: "Bearer " + token } });
+      const r = await fetch("https://subcaptions.onrender.com/billing/me", { headers: { Authorization: "Bearer " + token }, signal: timeoutSignal(60000) });
       if (r.ok) { const t = (await r.json()).tier; if (t === "solo" || t === "team") { IS_PRO = true; updateLengthLock(); return true; } }
     }
   } catch (e) {}
@@ -2067,15 +2095,24 @@ async function autoTranscribe(){
     toast("Can't auto-transcribe YouTube or Vimeo", "error");
     return;
   }
-  // Check the plan before asking to replace anything, so a free user is not asked
-  // to confirm a replacement that the server will then refuse.
-  if (!DEMO_TRANSCRIBE && !(await ensurePaid())) {
-    planToast((window.SubAuth && SubAuth.token) ? "Auto-captions need a Solo or Team plan." : "Auto-captions need a Solo or Team plan. Sign in if you already have one.");
-    return;
-  }
-  if (captions.length && !(await confirmModal(replaceMessage("Replace your current captions with auto-generated ones?"), "Replace"))) return;
   const btn = document.getElementById("auto-btn");
   const label = btn.innerHTML;
+  // Check the plan before asking to replace anything, so a free user is not asked
+  // to confirm a replacement that the server will then refuse.
+  if (!DEMO_TRANSCRIBE && !IS_PRO) {
+    // Both servers may be asleep. Wake transcription now so it starts up while the plan
+    // check waits on billing, rather than one after the other.
+    if (window.SubAuth && SubAuth.token) wakeServer(TRANSCRIBE_BASE);
+    btn.disabled = true; btn.textContent = "Checking your plan…";
+    const slow = setTimeout(() => { btn.textContent = "Waking the server…"; }, 8000);
+    const ok = await ensurePaid();
+    clearTimeout(slow); btn.disabled = false; btn.innerHTML = label;
+    if (!ok) {
+      planToast((window.SubAuth && SubAuth.token) ? "Auto-captions need a Solo or Team plan." : "Auto-captions need a Solo or Team plan. Sign in if you already have one.");
+      return;
+    }
+  }
+  if (captions.length && !(await confirmModal(replaceMessage("Replace your current captions with auto-generated ones?"), "Replace"))) return;
   btn.disabled = true; btn.textContent = "Transcribing…"; showBusy(true);
   const prog = startGenProgress(TRANSCRIBE_STAGES);
   try {
@@ -2383,6 +2420,7 @@ function planError(msg){ const e = new Error(msg); e.plan = true; return e; }
     else if (!d.user) IS_PRO = false; // signed out
     // The plan can arrive after the video has loaded: re-check the length limit.
     updateLengthLock();
+    wakeTranscribe();
     // Re-scope the recent list whenever the user signs in or out (landing view only).
     if (!document.body.classList.contains("editing-tab")) renderRecent();
     // Sign-in finishes after the editor has opened, so the account copy (and the version
