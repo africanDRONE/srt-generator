@@ -30,8 +30,7 @@ SUPABASE_ANON_KEY = "sb_publishable_XY_o9FB8t6SLX5GF0Cb6yg_Ow-7EPrg"
 
 # Secrets (do NOT put them here). Set them with:
 #   wrangler secret put ANTHROPIC_API_KEY
-#   wrangler secret put SUPABASE_ANON_KEY
-# Without SUPABASE_ANON_KEY the plan check is off and paid users get the free limits.
+# Do not also set SUPABASE_ANON_KEY as a secret: it is a var above, and the names would clash.
 
 # Burst limit per IP address. Optional: the Worker runs without this block, and the daily
 # quota below still applies. Counted per Cloudflare location. Needs wrangler 4.36.0 or later.
