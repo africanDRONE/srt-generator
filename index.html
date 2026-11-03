@@ -1337,10 +1337,10 @@ function alignOneRow(i){
 async function translateBatch(texts, target){
   if (DEMO) { await new Promise(r => setTimeout(r, 450)); return texts.map(t => `[${target}] ` + t); }
   const res = await fetch(API_BASE.replace(/\/$/,"") + "/translate", {
-    method:"POST", headers:{ "Content-Type":"application/json" },
+    method:"POST", headers: authHeaders({ "Content-Type":"application/json" }),
     body: JSON.stringify({ source:"auto", target, cues: texts })
   });
-  if (!res.ok) throw new Error("Translation failed (" + res.status + ")");
+  if (!res.ok) throw new Error(await guardMessage(res) || "Translation failed (" + res.status + ")");
   const data = await res.json();
   if (!data.translations || data.translations.length !== texts.length) throw new Error("Unexpected response");
   return data.translations;
@@ -1631,6 +1631,12 @@ function handleLine1Input(){
 function authHeaders(base) {
   const t = window.SubAuth && window.SubAuth.token;
   return t ? { ...base, Authorization: "Bearer " + t } : base;
+}
+// The translation Worker explains its own rejections (daily limit, caption too long, site
+// not allowed) in a JSON body with a code. Returns that message, or "" for any other error.
+async function guardMessage(res) {
+  if (![403, 413, 429].includes(res.status)) return "";
+  try { const d = await res.clone().json(); return d && d.code && d.error ? String(d.error) : ""; } catch { return ""; }
 }
 let toastTimer = null;
 function toast(msg, type){
