@@ -428,11 +428,15 @@ const TRANSCRIBE_BASE = "https://subcaptions-transcribe.onrender.com";  // Whisp
 const DEMO_TRANSCRIBE = !TRANSCRIBE_BASE;
 // The billing and transcription servers sleep when idle (Render free tier) and take up
 // to a minute to wake. A bare request ahead of need starts that early. no-cors: only the
-// request has to arrive. At most once every five minutes per server per page.
+// request has to arrive. At most once every five minutes per server per browser.
 const _wokeAt = {};
 function wakeServer(base){
-  if (!base || Date.now() - (_wokeAt[base] || 0) < 5 * 60 * 1000 || /bot|crawl|spider|slurp/i.test(navigator.userAgent)) return;
+  if (!base) return;
+  const key = "sc_woke:" + base;
+  try { _wokeAt[base] = Math.max(_wokeAt[base] || 0, +localStorage.getItem(key) || 0); } catch (e) {}
+  if (Date.now() - (_wokeAt[base] || 0) < 5 * 60 * 1000 || /bot|crawl|spider|slurp/i.test(navigator.userAgent)) return;
   _wokeAt[base] = Date.now();
+  try { localStorage.setItem(key, String(_wokeAt[base])); } catch (e) {}
   try { fetch(base.replace(/\/$/, "") + "/healthz", { mode: "no-cors", cache: "no-store" }).catch(() => {}); } catch (e) {}
 }
 // A paid user with a video that can be transcribed open is likely to auto-generate
