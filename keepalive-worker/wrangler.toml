@@ -3,7 +3,8 @@ main = "keepalive.js"
 compatibility_date = "2026-01-01"
 
 # Once a day at 12:00 UTC. Supabase pauses after 7 days of low DB activity, so daily
-# leaves a very wide safety margin even if a run or two is missed.
+# leaves a very wide safety margin even if a run or two is missed. The same run wakes
+# the billing server so its tier reconcile runs at least once a day.
 [triggers]
 crons = ["0 12 * * *"]
 
@@ -11,3 +12,4 @@ crons = ["0 12 * * *"]
 [vars]
 SUPABASE_URL      = "https://knuprwhbesymksfcaqav.supabase.co"
 SUPABASE_ANON_KEY = "sb_publishable_XY_o9FB8t6SLX5GF0Cb6yg_Ow-7EPrg"
+BILLING_URL       = "https://subcaptions.onrender.com"

@@ -44,6 +44,9 @@ browser, then mints short-lived signed GET URLs for playback / auto-transcribe.
 
 ## Limits
 
-- 2 GB per file (PUT size).
+- 2 GB per file (per plan, `MAX_FILE_BY_TIER`). The declared size is signed into the
+  PUT URL as `Content-Length`, and a `video/*` type as `Content-Type`, so R2 refuses an
+  upload that doesn't match what was checked.
+- Tests: `npm test` (stubbed Supabase and R2, no network).
 - 10 GB per user (enforced by listing the user's prefix in R2).
 - 7-day automatic expiry in R2 + client `/delete` on export.

@@ -1,9 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url><loc>https://subcaptions.com/</loc></url>
-  <url><loc>https://subcaptions.com/translate.html</loc></url>
+  <url><loc>https://subcaptions.com/translate</loc></url>
   <url><loc>https://subcaptions.com/languages/</loc></url>
-  <url><loc>https://subcaptions.com/pricing.html</loc></url>
+  <url><loc>https://subcaptions.com/pricing</loc></url>
+  <url><loc>https://subcaptions.com/subtitle-specs/</loc></url>
+  <url><loc>https://subcaptions.com/privacy</loc></url>
+  <url><loc>https://subcaptions.com/terms</loc></url>
   <url><loc>https://subcaptions.com/add-subtitles-to-youtube-video/</loc></url>
   <url><loc>https://subcaptions.com/youtube-subtitle-editor/</loc></url>
   <url><loc>https://subcaptions.com/how-to-make-an-srt-file/</loc></url>

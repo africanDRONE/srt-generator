@@ -17,8 +17,16 @@
  *   WHISPER_MODEL    default whisper-1 (use whisper-large-v3 on Groq).
  *   PRO_TOKEN        shared secret the front end sends until real per-user auth exists.
  *   ALLOWED_ORIGIN   default * . Set to your domain before launch.
- *   MAX_MINUTES      default 240. Hard cap to bound cost/abuse.
+ *   MAX_MINUTES      default 240. Hard cap to bound cost/abuse, checked BEFORE downloading.
  *   YTDLP_PROXY      optional. http(s) proxy for yt-dlp (needed for reliable YouTube at scale).
+ *                    When set, yt-dlp bypasses the egress guard (see guard.mjs).
+ *   DEV_ALLOW_ALL    "true" treats every caller as Team, but only when SUPABASE_URL and
+ *                    PRO_TOKEN are both unset. Local testing only.
+ *   PEAKS_PER_10MIN  default 20. /peaks requests per client IP per 10 minutes.
+ *   TRUST_PROXY_HOPS default 1. Proxies in front of this app (Render's), so req.ip is the client.
+ *
+ * Every URL is checked by guard.mjs (http(s), default port, public address only) and
+ * yt-dlp / ffprobe / ffmpeg reach the network only through its egress proxy.
  *
  * Cost: Whisper is ~$0.006/min on OpenAI (cheaper on Groq). A 45-min video ~ $0.27.
  *
@@ -34,10 +42,29 @@ import { promisify } from "node:util";
 import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import {
+  GuardError, PlanCheckError, validateMediaUrl, startEgressGuard, tierFor, isSignedIn,
+  burnHeightFor, makeRateLimiter, authConfigWarnings,
+} from "./guard.mjs";
 
-const run = promisify(execFile);
 const app = express();
 app.use(express.json({ limit: "1mb" }));
+app.set("trust proxy", parseInt(process.env.TRUST_PROXY_HOPS || "1", 10));
+
+for (const w of authConfigWarnings()) console.error(w);
+
+// Loopback proxy that re-checks every connection the child processes open.
+const egress = await startEgressGuard();
+console.log(`egress guard on ${egress.url}`);
+
+// Child processes get a minimal environment: no API keys to leak, and all their
+// HTTP(S) traffic goes through the egress guard (ffmpeg reads http_proxy).
+const CHILD_ENV = Object.fromEntries(Object.entries({
+  PATH: process.env.PATH, HOME: process.env.HOME, TMPDIR: process.env.TMPDIR, LANG: process.env.LANG,
+  http_proxy: egress.url, https_proxy: egress.url, HTTP_PROXY: egress.url, HTTPS_PROXY: egress.url, no_proxy: "", NO_PROXY: "",
+}).filter(([, v]) => v !== undefined));
+const exec = promisify(execFile);
+const run = (cmd, args, opts = {}) => exec(cmd, args, { env: CHILD_ENV, ...opts });
 
 const ORIGIN = process.env.ALLOWED_ORIGIN || "*";
 const WHISPER_BASE = (process.env.WHISPER_BASE || "https://api.openai.com/v1").replace(/\/$/, "");
@@ -53,84 +80,119 @@ app.use((req, res, next) => {
   next();
 });
 
-const BUILD = "2026-06-24-cleanup-fix"; // bump on deploy to verify what's live
+const BUILD = "2026-11-03-hardening"; // bump on deploy to verify what's live
 app.get("/healthz", (_req, res) => res.json({ ok: true, build: BUILD }));
 
-// Resolve the caller's subscription tier from their Supabase access token.
-// Dev fallback: if SUPABASE_URL isn't set, use the simple PRO_TOKEN shared secret
-// (or allow everything if neither is configured, for local testing).
-async function tierFor(req) {
-  if (!process.env.SUPABASE_URL) {
-    if (process.env.PRO_TOKEN) {
-      const a = req.get("authorization") || "";
-      return a === `Bearer ${process.env.PRO_TOKEN}` ? "team" : "free";
-    }
-    return "team";
+const TOO_LONG = { error: `Video exceeds the ${MAX_MINUTES}-minute limit` };
+
+// Failed jobs answer with a short fixed message. The detail (command lines,
+// stderr, temp paths, the egress proxy port, upstream error bodies) goes to the
+// log only. A JobError carries the message meant for the user.
+const READ_FAILED = "We couldn't read that video. Check the link plays in your browser and try again.";
+class JobError extends Error {
+  constructor(userMessage, detail) { super(detail || userMessage); this.userMessage = userMessage; }
+}
+function sendJobError(res, tag, e, fallback) {
+  console.error(`[${tag}] ERROR: ${(e && e.message) || e}`);
+  if (!res.headersSent) res.status(502).json({ error: e instanceof JobError ? e.userMessage : fallback });
+}
+
+// Plan for the caller, or null after answering 503 when Supabase can't be
+// reached (a paying user must not be treated as free during an outage).
+async function planOr503(req, res) {
+  try { return await tierFor(req); }
+  catch (e) {
+    console.error(`[plan] ${e instanceof PlanCheckError ? "" : "unexpected: "}${e.message}`);
+    res.status(503).json({ error: "Could not check your plan, please try again" });
+    return null;
   }
-  const a = req.get("authorization") || "";
-  const token = a.startsWith("Bearer ") ? a.slice(7) : null;
-  if (!token) return "free";
+}
+
+// Common yt-dlp flags. --proxy sends every request through the egress guard, or
+// through YTDLP_PROXY when that is set (then only the up-front URL check applies).
+const ytdlpCommon = () => ["--no-playlist", "--proxy", process.env.YTDLP_PROXY || egress.url];
+
+// Media length in seconds read WITHOUT downloading, or null if unknown.
+// ffprobe first: for a direct file it reads the header (plus the index at the
+// end via a range request), not the whole body. Pages that need an extractor
+// (YouTube, Vimeo, large Drive files) fall through to yt-dlp's metadata.
+async function remoteDuration(url) {
+  const p = await run("ffprobe", [
+    "-v", "error", "-protocol_whitelist", "http,https,tls,tcp,httpproxy", "-rw_timeout", "15000000",
+    "-show_entries", "format=duration", "-of", "default=nw=1:nk=1", url,
+  ], { timeout: 45000 }).catch(() => null);
+  const d = p ? parseFloat(p.stdout.trim()) : NaN;
+  if (d > 0) return d;
+  const m = await run("yt-dlp", [...ytdlpCommon(), "--print", "duration", "--", url], { timeout: 60000 }).catch(() => null);
+  const d2 = m ? parseFloat(m.stdout.trim()) : NaN; // "NA" when the site gives no duration
+  return d2 > 0 ? d2 : null;
+}
+
+// Length of a downloaded file. -protocol_whitelist file stops a downloaded
+// playlist (HLS, concat) from making ffmpeg fetch anything else.
+async function localDuration(inPath) {
+  const probe = await run("ffprobe", ["-v", "error", "-protocol_whitelist", "file", "-show_entries", "format=duration", "-of", "default=nw=1:nk=1", inPath]).catch(() => null);
+  return probe ? parseFloat(probe.stdout.trim()) || 0 : 0;
+}
+
+// Validate the request's url and refuse over-cap media before any download.
+// Returns the normalized URL string, or null after sending the error response.
+async function checkSource(req, res) {
+  let u;
+  try { u = await validateMediaUrl((req.body || {}).url); }
+  catch (e) {
+    res.status(e instanceof GuardError ? e.status : 400).json({ error: e instanceof GuardError ? e.message : "Valid url required" });
+    return null;
+  }
+  const d = await remoteDuration(u.href);
+  if (d && d > MAX_MINUTES * 60) { res.status(413).json(TOO_LONG); return null; }
+  return u.href;
+}
+
+// Download with yt-dlp into dir; returns the file path or throws a JobError.
+async function download(url, dir, format, timeout) {
   try {
-    const ures = await fetch(`${process.env.SUPABASE_URL}/auth/v1/user`, {
-      // Fall back to the service-role key as apikey so this works even if
-      // SUPABASE_ANON_KEY isn't set on this service.
-      headers: { apikey: process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${token}` },
-    });
-    if (!ures.ok) return "free";
-    const user = await ures.json();
-    if (!user?.id) return "free";
-    const pres = await fetch(`${process.env.SUPABASE_URL}/rest/v1/profiles?id=eq.${user.id}&select=tier`, {
-      headers: { apikey: process.env.SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}` },
-    });
-    if (!pres.ok) return "free";
-    const rows = await pres.json();
-    return rows[0]?.tier || "free";
-  } catch (e) {
-    return "free";
-  }
+    await run("yt-dlp", ["-f", format, ...ytdlpCommon(), "-o", path.join(dir, "in.%(ext)s"), "--", url], { timeout });
+  } catch (e) { throw new JobError(READ_FAILED, `yt-dlp failed: ${e.message}`); }
+  const f = (await fs.readdir(dir)).find((n) => n.startsWith("in."));
+  if (!f) throw new JobError(READ_FAILED, "yt-dlp produced no file");
+  return path.join(dir, f);
 }
 
 app.post("/transcribe", async (req, res) => {
   // Pro gate
-  if ((await tierFor(req)) === "free") return res.status(402).json({ error: "Pro required" });
+  const tier = await planOr503(req, res);
+  if (!tier) return;
+  if (tier === "free") return res.status(402).json({ error: "Pro required" });
   if (!process.env.OPENAI_API_KEY) return res.status(500).json({ error: "Server not configured" });
 
-  const { url, language } = req.body || {};
-  if (!url || !/^https?:\/\//.test(url)) return res.status(400).json({ error: "Valid url required" });
+  const { language } = req.body || {};
+  const url = await checkSource(req, res);
+  if (!url) return;
 
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), "subcap-"));
   const t0 = Date.now();
   const log = (m) => console.log(`[transcribe +${((Date.now() - t0) / 1000).toFixed(1)}s] ${m}`);
   try {
-    log(`start url=${url}`);
+    log(`start host=${new URL(url).host}`); // not the full URL: signed links carry tokens
     // 1. Pull the best audio for any source.
-    const ytdlpArgs = ["-f", "bestaudio/best", "--no-playlist", "-o", path.join(dir, "in.%(ext)s")];
-    if (process.env.YTDLP_PROXY) ytdlpArgs.push("--proxy", process.env.YTDLP_PROXY);
-    ytdlpArgs.push(url);
-    await run("yt-dlp", ytdlpArgs, { timeout: 1000 * 60 * 10 });
+    const inPath = await download(url, dir, "bestaudio/best", 1000 * 60 * 10);
+    log(`downloaded ${path.basename(inPath)}`);
 
-    const downloaded = (await fs.readdir(dir)).find((f) => f.startsWith("in."));
-    if (!downloaded) throw new Error("Could not fetch audio for that link");
-    const inPath = path.join(dir, downloaded);
-    log(`downloaded ${downloaded}`);
-
-    // 2. Guard duration.
-    const probe = await run("ffprobe", ["-v", "error", "-show_entries", "format=duration", "-of", "default=nw=1:nk=1", inPath]).catch(() => null);
-    const duration = probe ? parseFloat(probe.stdout.trim()) : 0;
-    if (duration && duration > MAX_MINUTES * 60) {
-      return res.status(413).json({ error: `Video exceeds the ${MAX_MINUTES}-minute limit` });
-    }
+    // 2. Guard duration again (backstop for sources whose length was unknown up front).
+    const duration = await localDuration(inPath);
+    if (duration && duration > MAX_MINUTES * 60) return res.status(413).json(TOO_LONG);
     log(`duration=${duration}s, extracting audio`);
 
     // 3. Normalize to 16kHz mono mp3 and split into chunks Whisper can swallow.
     await run("ffmpeg", [
-      "-i", inPath, "-vn", "-ac", "1", "-ar", "16000", "-b:a", "64k",
+      "-protocol_whitelist", "file", "-i", inPath, "-vn", "-ac", "1", "-ar", "16000", "-b:a", "64k",
       "-f", "segment", "-segment_time", String(CHUNK_SECONDS),
       "-reset_timestamps", "1", path.join(dir, "chunk_%03d.mp3"),
     ], { timeout: 1000 * 60 * 10 });
 
     const chunks = (await fs.readdir(dir)).filter((f) => /^chunk_\d+\.mp3$/.test(f)).sort();
-    if (!chunks.length) throw new Error("No audio extracted");
+    if (!chunks.length) throw new JobError("We couldn't find any audio in that video.", "No audio extracted");
     log(`chunked into ${chunks.length}, transcribing`);
 
     // 4. Transcribe each chunk, offsetting timestamps by the chunk's position.
@@ -148,13 +210,13 @@ app.post("/transcribe", async (req, res) => {
 
     res.json({ cues });
   } catch (e) {
-    console.error(`[transcribe +${((Date.now() - t0) / 1000).toFixed(1)}s] ERROR: ${e.message}`);
-    res.status(502).json({ error: e.message || "Transcription failed" });
+    sendJobError(res, `transcribe +${((Date.now() - t0) / 1000).toFixed(1)}s`, e, "Transcription failed. Please try again in a moment.");
   } finally {
     fs.rm(dir, { recursive: true, force: true }).catch(() => {});
   }
 });
 
+const WHISPER_FAILED = "The transcription service didn't respond. Please try again in a moment.";
 async function whisper(filePath, language) {
   const buf = await fs.readFile(filePath);
   const fd = new FormData();
@@ -180,9 +242,9 @@ async function whisper(filePath, language) {
       signal: ctrl.signal,
     });
   } catch (e) {
-    throw new Error(e.name === "AbortError" ? "Whisper request timed out" : `Whisper request failed: ${e.message}`);
+    throw new JobError(WHISPER_FAILED, e.name === "AbortError" ? "Whisper request timed out" : `Whisper request failed: ${e.message}`);
   } finally { clearTimeout(timer); }
-  if (!r.ok) { const detail = await r.text().catch(() => ""); throw new Error(`Whisper error ${r.status} ${detail.slice(0, 200)}`); }
+  if (!r.ok) { const detail = await r.text().catch(() => ""); throw new JobError(WHISPER_FAILED, `Whisper error ${r.status} ${detail.slice(0, 200)}`); }
   const data = await r.json();
   return { segments: data.segments || [], words: data.words || [] };
 }
@@ -339,31 +401,31 @@ function cleanup(cues) {
 // time and the output file (the bandwidth cost) stay bounded. This is the one
 // feature with real per-render cost, which is why it sits behind the paid tiers.
 app.post("/burn", async (req, res) => {
-  if ((await tierFor(req)) === "free") return res.status(402).json({ error: "Pro required" });
-  const { url, srt, maxHeight } = req.body || {};
-  if (!url || !/^https?:\/\//.test(url)) return res.status(400).json({ error: "Valid url required" });
-  if (!srt || typeof srt !== "string") return res.status(400).json({ error: "srt text required" });
-  const height = Math.min(parseInt(maxHeight || "1080", 10) || 1080, 2160); // Solo 1080, Team up to 2160
+  const tier = await planOr503(req, res);
+  if (!tier) return;
+  const { srt, maxHeight } = req.body || {};
+  // Height must be one of BURN_HEIGHTS; Solo is capped at 1080, Team at 2160, Free refused.
+  const h = burnHeightFor(tier, maxHeight);
+  if (h.error) return res.status(h.status).json({ error: h.error });
+  const height = h.height;
+  // Must start like SRT (a cue number): the subtitles filter probes the file's format,
+  // and this keeps a playlist or ffconcat file from being passed off as subtitles.
+  if (!srt || typeof srt !== "string" || !/^﻿?\s*\d+[ \t]*\r?\n/.test(srt)) return res.status(400).json({ error: "srt text required" });
+  const url = await checkSource(req, res);
+  if (!url) return;
 
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), "burn-"));
   try {
     await fs.writeFile(path.join(dir, "subs.srt"), srt, "utf8");
-    const ytdlpArgs = ["-f", "bv*+ba/b", "--no-playlist", "-o", path.join(dir, "in.%(ext)s")];
-    if (process.env.YTDLP_PROXY) ytdlpArgs.push("--proxy", process.env.YTDLP_PROXY);
-    ytdlpArgs.push(url);
-    await run("yt-dlp", ytdlpArgs, { timeout: 1000 * 60 * 10 });
-    const downloaded = (await fs.readdir(dir)).find((f) => f.startsWith("in."));
-    if (!downloaded) throw new Error("Could not fetch the video for that link");
-    const inPath = path.join(dir, downloaded);
+    const inPath = await download(url, dir, "bv*+ba/b", 1000 * 60 * 10);
 
-    const probe = await run("ffprobe", ["-v", "error", "-show_entries", "format=duration", "-of", "default=nw=1:nk=1", inPath]).catch(() => null);
-    const duration = probe ? parseFloat(probe.stdout.trim()) : 0;
-    if (duration && duration > MAX_MINUTES * 60) return res.status(413).json({ error: `Video exceeds the ${MAX_MINUTES}-minute limit` });
+    const duration = await localDuration(inPath);
+    if (duration && duration > MAX_MINUTES * 60) return res.status(413).json(TOO_LONG);
 
     const outPath = path.join(dir, "out.mp4");
     // subtitles filter renders the .srt into the picture; scale caps the height (and cost).
     await run("ffmpeg", [
-      "-i", inPath,
+      "-protocol_whitelist", "file", "-i", inPath,
       "-vf", `scale=-2:'min(${height},ih)',subtitles='${path.join(dir, "subs.srt")}'`,
       "-c:v", "libx264", "-preset", "veryfast", "-crf", "23",
       "-c:a", "aac", "-b:a", "128k", "-movflags", "+faststart", outPath,
@@ -374,57 +436,54 @@ app.post("/burn", async (req, res) => {
     const buf = await fs.readFile(outPath);
     res.send(buf);
   } catch (e) {
-    res.status(502).json({ error: e.message || "Render failed" });
+    sendJobError(res, "burn", e, "We couldn't render that video. Please try again.");
   } finally {
     fs.rm(dir, { recursive: true, force: true }).catch(() => {});
   }
 });
 
-// Is the caller a valid signed-in Supabase user (any tier)? Light gate for /peaks.
-async function isSignedIn(req){
-  if (!process.env.SUPABASE_URL) return true; // dev/local
-  const a = req.get("authorization") || "";
-  const token = a.startsWith("Bearer ") ? a.slice(7) : null;
-  if (!token) return false;
-  try {
-    const r = await fetch(`${process.env.SUPABASE_URL}/auth/v1/user`, {
-      headers: { apikey: process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${token}` },
-    });
-    if (!r.ok) return false;
-    const u = await r.json();
-    return !!(u && u.id);
-  } catch(e){ return false; }
-}
-
 // Waveform peaks for any source the server can fetch (direct/S3/Dropbox/Drive/R2/Frame.io).
 // Just an audio download + a fast ffmpeg PCM pass, no Whisper, so it's cheap. Returns a
 // small {duration, peaks[0..1]} the browser draws. (YouTube/Vimeo excluded, same as transcribe.)
+// Stays open to signed-in Free accounts: the free editor's waveform falls back to this
+// route whenever the browser can't decode the file itself (index.html buildWaveform).
+// Cost is bounded by the URL guard, the duration cap and a per-IP rate limit.
+const peaksLimit = makeRateLimiter({ limit: parseInt(process.env.PEAKS_PER_10MIN || "20", 10), windowMs: 10 * 60 * 1000 });
 app.post("/peaks", async (req, res) => {
-  if (!(await isSignedIn(req))) return res.status(401).json({ error: "Sign in to load the waveform for this source." });
-  const { url } = req.body || {};
-  if (!url || !/^https?:\/\//.test(url)) return res.status(400).json({ error: "Valid url required" });
+  const rl = peaksLimit(req.ip || "unknown");
+  if (!rl.ok) { res.set("Retry-After", String(rl.retryAfterSec)); return res.status(429).json({ error: "Too many waveform requests, please wait a few minutes." }); }
+  let signedIn;
+  try { signedIn = await isSignedIn(req); }
+  catch (e) { console.error(`[plan] ${e.message}`); return res.status(503).json({ error: "Could not check your plan, please try again" }); }
+  if (!signedIn) return res.status(401).json({ error: "Sign in to load the waveform for this source." });
+  const url = await checkSource(req, res);
+  if (!url) return;
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), "peaks-"));
   try {
-    const ytdlpArgs = ["-f", "bestaudio/best", "--no-playlist", "-o", path.join(dir, "in.%(ext)s")];
-    if (process.env.YTDLP_PROXY) ytdlpArgs.push("--proxy", process.env.YTDLP_PROXY);
-    ytdlpArgs.push(url);
-    await run("yt-dlp", ytdlpArgs, { timeout: 1000 * 60 * 8 });
-    const dl = (await fs.readdir(dir)).find((f) => f.startsWith("in."));
-    if (!dl) throw new Error("Could not fetch audio for that link");
-    const inPath = path.join(dir, dl);
-    const probe = await run("ffprobe", ["-v", "error", "-show_entries", "format=duration", "-of", "default=nw=1:nk=1", inPath]).catch(() => null);
-    const duration = probe ? parseFloat(probe.stdout.trim()) : 0;
-    if (duration && duration > MAX_MINUTES * 60) return res.status(413).json({ error: `Video exceeds the ${MAX_MINUTES}-minute limit` });
+    const inPath = await download(url, dir, "bestaudio/best", 1000 * 60 * 8);
+    const duration = await localDuration(inPath);
+    if (duration && duration > MAX_MINUTES * 60) return res.status(413).json(TOO_LONG);
     const pcmPath = path.join(dir, "a.pcm");
-    await run("ffmpeg", ["-i", inPath, "-vn", "-ac", "1", "-ar", "4000", "-f", "s16le", pcmPath], { timeout: 1000 * 60 * 8 });
+    await run("ffmpeg", ["-protocol_whitelist", "file", "-i", inPath, "-vn", "-ac", "1", "-ar", "4000", "-f", "s16le", pcmPath], { timeout: 1000 * 60 * 8 });
     const b = await fs.readFile(pcmPath);
     const ab = b.buffer.slice(b.byteOffset, b.byteOffset + b.length);
     const samples = new Int16Array(ab);
     const N = 800, win = Math.max(1, Math.floor(samples.length / N)), peaks = [];
     for (let i = 0; i < N; i++){ let max = 0; const s = i * win; for (let j = 0; j < win; j++){ const v = Math.abs(samples[s + j] || 0); if (v > max) max = v; } peaks.push(+(max / 32768).toFixed(3)); }
     res.json({ duration: duration || samples.length / 4000, peaks });
-  } catch(e){ res.status(502).json({ error: e.message || "Waveform failed" }); }
+  } catch(e){ sendJobError(res, "peaks", e, "We couldn't build the waveform for that video."); }
   finally { fs.rm(dir, { recursive: true, force: true }).catch(() => {}); }
+});
+
+// Anything that reaches Express's own error handler (a malformed JSON body, an
+// oversized one) gets a short JSON answer instead of the default page, which
+// outside NODE_ENV=production includes the stack trace.
+app.use((err, req, res, _next) => {
+  const status = err.status >= 400 && err.status < 500 ? err.status : 500;
+  console.error(`[${req.method} ${req.path}] ${status}: ${err.message}`);
+  if (res.headersSent) return;
+  res.set("Access-Control-Allow-Origin", ORIGIN);
+  res.status(status).json({ error: status === 413 ? "Request too large" : status < 500 ? "Bad request" : "Server error" });
 });
 
 const PORT = process.env.PORT || 8080;

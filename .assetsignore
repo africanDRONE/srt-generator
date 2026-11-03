@@ -4,6 +4,7 @@
 
 # Version control + tooling caches
 .git/
+.git
 .wrangler/
 .claude/
 node_modules/
@@ -13,6 +14,9 @@ billing/
 transcribe-server/
 worker/
 supabase/
+upload-worker/
+frameio-worker/
+keepalive-worker/
 
 # Build tooling + internal docs (not part of the live site)
 seo/
@@ -24,3 +28,4 @@ wrangler.toml
 .gitignore
 .assetsignore
 README.md
+LAUNCH-REPORT.md

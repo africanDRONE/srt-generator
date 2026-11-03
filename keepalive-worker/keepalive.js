@@ -9,7 +9,15 @@
  * This is a stopgap for the low-traffic period. Once the app has steady real users (or
  * you move to Supabase Pro, which never pauses), it becomes redundant and can be removed.
  *
- * Config: vars SUPABASE_URL, SUPABASE_ANON_KEY (publishable/browser-safe key only).
+ * The same run also wakes the billing server once a day. On Render's free plan it sleeps
+ * after 15 idle minutes, and its tier reconcile only runs while it is awake (5 seconds
+ * after start, then every 6 hours), so without this a quiet week could pass with no
+ * reconcile at all. It is deliberately NOT a 10-minute keep-warm: Render's 750 free
+ * hours are shared by every free service in the workspace, and keeping one service up
+ * all month uses about 744 of them, which would get the transcribe service suspended.
+ *
+ * Config: vars SUPABASE_URL, SUPABASE_ANON_KEY (publishable/browser-safe key only),
+ * BILLING_URL (optional; the billing server's base URL).
  */
 
 async function ping(env) {
@@ -26,16 +34,31 @@ async function ping(env) {
   return { ok: r.ok, status: r.status, at: new Date().toISOString() };
 }
 
+// A cold start takes about a minute, so allow 90 seconds before giving up.
+async function wakeBilling(env) {
+  if (!env.BILLING_URL) return { skipped: true };
+  const r = await fetch(`${env.BILLING_URL}/healthz`, { signal: AbortSignal.timeout(90000) });
+  const body = await r.json().catch(() => null);
+  return { ok: r.ok, status: r.status, build: body && body.build, at: new Date().toISOString() };
+}
+
 export default {
   async scheduled(event, env, ctx) {
     ctx.waitUntil(
-      ping(env).then(
-        (r) => console.log("keepalive ping", JSON.stringify(r)),
-        (e) => console.log("keepalive FAILED", e && e.message)
-      )
+      Promise.all([
+        ping(env).then(
+          (r) => console.log("keepalive ping", JSON.stringify(r)),
+          (e) => console.log("keepalive FAILED", e && e.message)
+        ),
+        wakeBilling(env).then(
+          (r) => console.log("billing wake", JSON.stringify(r)),
+          (e) => console.log("billing wake FAILED", e && e.message)
+        ),
+      ])
     );
   },
-  // Manual check: hitting this Worker's URL runs the same ping and shows the result.
+  // Manual check: hitting this Worker's URL runs the Supabase ping and shows the result.
+  // It does not wake billing, so a stranger loading this URL can't spend Render hours.
   async fetch(request, env) {
     const r = await ping(env).catch((e) => ({ ok: false, error: e.message }));
     return new Response(JSON.stringify(r, null, 2), {

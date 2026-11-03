@@ -54,13 +54,17 @@ create table if not exists public.projects (
 );
 create unique index if not exists projects_owner_key on public.projects(owner, source_key);
 create index if not exists projects_owner_updated on public.projects(owner, updated_at desc);
+-- Size of data in bytes, summed per owner for the storage cap (billing/projects.mjs).
+alter table public.projects add column if not exists bytes int not null default 0;
 
 alter table public.projects enable row level security;
 drop policy if exists "own projects" on public.projects;
 create policy "own projects" on public.projects
-  for all using (auth.uid() = owner) with check (auth.uid() = owner);
--- (The app server uses the service-role key and scopes every query by owner;
---  this policy is defense-in-depth for any direct client access.)
+  for select using (auth.uid() = owner);
+-- (The app server uses the service-role key and scopes every query by owner. Clients
+--  may only read their own rows; every write goes through the server, which checks the
+--  payload, the project quota and the storage cap. A write policy here would let a
+--  signed-in user skip those checks with the public anon key.)
 
 -- Scoped share links so a translator can work on ONE project without an account.
 create table if not exists public.share_links (

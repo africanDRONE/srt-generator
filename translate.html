@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Translate Subtitle Files, SRT &amp; VTT in 50+ Languages | SubCaptions</title>
-<meta name="description" content="Already have a subtitle file? Translate .srt or .vtt into 50+ languages in your browser. Timecodes preserved, files never stored, no signup." />
+<title>Translate Subtitle Files, SRT &amp; VTT in 44 Languages | SubCaptions</title>
+<meta name="description" content="Already have a subtitle file? Translate .srt or .vtt into 44 languages. Timecodes preserved, no signup for files up to 200 lines." />
 <link rel="canonical" href="https://subcaptions.com/translate" />
 <link rel="icon" type="image/svg+xml" href="/assets/logo.svg" />
 <link rel="icon" type="image/png" sizes="32x32" href="/assets/logo-32.png" />
@@ -63,6 +63,8 @@
   .progress-fill{height:100%;width:0;background:var(--grad);transition:width .2s}
   .progress-label{font-size:12.5px;color:var(--muted);margin-top:8px;text-align:center}
   .limit-note{margin-top:12px;font-size:13px;color:var(--muted);text-align:center}
+  .limit-note.warn{color:var(--text);background:#fdf2f8;border:1px solid #fbcfe8;border-radius:10px;padding:10px 14px}
+  .data-note{margin-top:12px;font-size:12.5px;color:var(--muted);text-align:center}
   .demo-flag{display:none;margin-top:12px;font-size:12.5px;color:#92400e;background:#fef3c7;border:1px solid #fcd34d;border-radius:10px;padding:9px 14px;text-align:center}.demo-flag.show{display:block}
   .results-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:14px}
   .results-head strong{font-family:var(--font-display);font-size:17px}
@@ -90,10 +92,18 @@
   .tcue textarea:focus{border-color:var(--brand1);box-shadow:0 0 0 3px rgba(99,102,241,.12)}
   .tcol.source .tcue textarea{background:#fff;color:var(--text)}
   footer.site{margin-top:46px;padding:28px 0;border-top:1px solid var(--border);color:var(--muted);font-size:13.5px;text-align:center}footer.site a{color:var(--text-soft);margin:0 8px}
-  .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(8px);background:var(--text);color:#fff;padding:12px 22px;border-radius:12px;font-size:14px;font-weight:500;opacity:0;pointer-events:none;transition:.2s;z-index:200;box-shadow:var(--shadow)}
+  .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(8px);width:max-content;max-width:min(560px,calc(100vw - 32px));text-align:center;background:var(--text);color:#fff;padding:12px 22px;border-radius:12px;font-size:14px;font-weight:500;opacity:0;pointer-events:none;transition:.2s;z-index:200;box-shadow:var(--shadow)}
   .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}.toast.error{background:var(--error)}.toast.success{background:var(--success)}
+  .toast a{color:#fff;font-weight:700;text-decoration:underline}.toast.show.linked{pointer-events:auto}
   .hidden{display:none!important}
   @media(max-width:680px){.controls{grid-template-columns:1fr}.cue,.col-head{grid-template-columns:44px 1fr}.cue .src,.col-head span:nth-child(2){display:none}}
+  /* Phones: the nav links wrap under the logo, and the columns keep a readable width and scroll sideways inside the card, so every download button stays clickable. */
+  @media(max-width:680px){
+    .nav-inner{height:auto;min-height:56px;flex-wrap:wrap;gap:8px 14px;padding:8px 16px}.nav-links{gap:14px;flex-wrap:wrap}
+    .wrap{padding:0 16px}.card{padding:16px}
+    .cols-viewport.fit{overflow-x:auto;scroll-snap-type:x mandatory}.cols-viewport.fit .tcol{flex:0 0 260px}.cols-viewport.fit .tcol:only-child{flex:1 1 auto}
+    #carousel-nav.hidden{display:flex!important}
+  }
 </style>
 </head>
 <body>
@@ -113,7 +123,7 @@
   <section class="hero">
     <div class="eyebrow">📄 Already have a subtitle file?</div>
     <h1>Translate <span class="gradient-text">.srt &amp; .vtt</span> files</h1>
-    <p class="sub">Drop in a subtitle file, pick a language, and download the translation. Timecodes preserved, <strong>files never stored</strong>. No signup.</p>
+    <p class="sub">Drop in a subtitle file, pick a language, and download the translation. Timecodes are preserved, and files up to 200 lines need no signup.</p>
     <a class="back-link" href="/">← Or caption a YouTube video from scratch</a>
   </section>
 
@@ -122,7 +132,7 @@
       <div id="dz-default">
         <div class="big">📂</div>
         <div>Drag a subtitle file here, or <strong>click to browse</strong></div>
-        <div class="hint">.srt and .vtt, up to <span id="lim">200</span> lines free</div>
+        <div class="hint" id="dz-hint">.srt and .vtt, up to 200 lines on Free, no line limit on Solo and Team</div>
       </div>
       <div id="dz-loaded" class="hidden">
         <div class="big">✅</div>
@@ -140,6 +150,7 @@
     <div class="demo-flag" id="demo-flag">Demo mode: translations are simulated locally (no API key configured). Parsing, editing, and export are live.</div>
     <div class="progress-wrap" id="progress-wrap"><div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div><div class="progress-label" id="progress-label">Translating…</div></div>
     <div class="limit-note" id="limit-note"></div>
+    <p class="data-note">Your file is read in your browser. When you add a translation, the subtitle text is sent to our translation server and to an AI model provider to translate it. <a href="/privacy">Privacy</a></p>
   </div>
 
   <div class="card hidden" id="results-card">
@@ -162,53 +173,177 @@
 <script>
 const API_BASE = "https://subtitle-translate.johnnie-miller.workers.dev";
 const FREE_LINE_LIMIT = 200, BATCH_SIZE = 20, DEMO = !API_BASE;
+const SPLIT_BUDGET = 12;  // extra Worker requests one batch may spend on splitting after the Worker rejects it
+const REQUEST_TIMEOUT_MS = 45000;  // a 20-line batch normally answers in 4 to 6 seconds
 const LANGUAGES = [["Spanish","es","🇪🇸"],["French","fr","🇫🇷"],["German","de","🇩🇪"],["Italian","it","🇮🇹"],["Portuguese","pt","🇵🇹"],["Portuguese (Brazil)","pt-BR","🇧🇷"],["Dutch","nl","🇳🇱"],["Russian","ru","🇷🇺"],["Polish","pl","🇵🇱"],["Turkish","tr","🇹🇷"],["Arabic","ar","🇸🇦"],["Hebrew","he","🇮🇱"],["Hindi","hi","🇮🇳"],["Bengali","bn","🇧🇩"],["Urdu","ur","🇵🇰"],["Japanese","ja","🇯🇵"],["Korean","ko","🇰🇷"],["Chinese (Simplified)","zh-CN","🇨🇳"],["Chinese (Traditional)","zh-TW","🇹🇼"],["Vietnamese","vi","🇻🇳"],["Thai","th","🇹🇭"],["Indonesian","id","🇮🇩"],["Malay","ms","🇲🇾"],["Filipino","tl","🇵🇭"],["Ukrainian","uk","🇺🇦"],["Czech","cs","🇨🇿"],["Slovak","sk","🇸🇰"],["Romanian","ro","🇷🇴"],["Hungarian","hu","🇭🇺"],["Greek","el","🇬🇷"],["Bulgarian","bg","🇧🇬"],["Serbian","sr","🇷🇸"],["Croatian","hr","🇭🇷"],["Swedish","sv","🇸🇪"],["Norwegian","no","🇳🇴"],["Danish","da","🇩🇰"],["Finnish","fi","🇫🇮"],["English","en","🇬🇧"],["Persian","fa","🇮🇷"],["Swahili","sw","🇰🇪"],["Tamil","ta","🇮🇳"],["Telugu","te","🇮🇳"],["Marathi","mr","🇮🇳"],["Catalan","ca","🇪🇸"]];
 let cues = [], sourceName = "subtitles", langCols = [];  // langCols: [{code,name,lines:[...]}]
 const SOURCE_KEY = "__source__";
+// Plans. FREE_LINE_LIMIT applies to signed-out and Free users only; the Worker applies every plan's
+// own limits whatever this page decides. lib/auth.js loads after this script, and a signed-in user
+// reads as "free" until the billing server answers, a few seconds after load. So the line limit
+// waits for that answer, up to TIER_WAIT_MS after load, and re-checks when a "subauth" event arrives.
+const PAGE_START = Date.now(), TIER_WAIT_MS = 6000, PLAN_LIMIT_CODES = ["daily_quota","free_pool"], PLANS_LINK = {href:"/pricing",text:"See plans"};
+let tierWaited = false;
+function planTier(){const t=window.SubAuth&&window.SubAuth.tier;return t==="solo"||t==="team"?t:"free";}
+function tierKnown(){const a=window.SubAuth;return planTier()!=="free"||(!!a&&!a.user)||tierWaited||Date.now()-PAGE_START>=TIER_WAIT_MS;}
+function waitForTier(){
+  if(tierKnown())return Promise.resolve();
+  return new Promise(r=>{
+    const done=()=>{clearTimeout(t);document.removeEventListener("subauth",on);tierWaited=true;r();};
+    const on=()=>{const a=window.SubAuth;if(planTier()!=="free"||(a&&!a.user))done();};
+    const t=setTimeout(done,Math.max(2500,PAGE_START+TIER_WAIT_MS-Date.now()));
+    document.addEventListener("subauth",on);
+  });
+}
+function overFreeLimit(){return cues.length>FREE_LINE_LIMIT&&planTier()==="free";}
+// The note under the controls. Over the free limit it stays up until the file or the plan changes.
+function updateLimitNote(){
+  const note=document.getElementById("limit-note"); if(!cues.length)return;
+  note.classList.remove("warn");
+  if(!overFreeLimit()) note.innerHTML=`Loaded <strong>${cues.length}</strong> lines. Pick a language and hit Add translation.`;
+  else if(!tierKnown()) note.innerHTML=`Loaded <strong>${cues.length}</strong> lines. Checking your plan…`;
+  else{
+    note.classList.add("warn");
+    const signIn=window.SubAuth&&window.SubAuth.user?"":` · <a href="#" data-account>Sign in</a>`;
+    note.innerHTML=`This file has <strong>${cues.length}</strong> lines, and the free limit is ${FREE_LINE_LIMIT} lines per file. Solo and Team have no line limit. <a href="/pricing">See plans</a>${signIn}`;
+  }
+}
+function updateHint(){const t=planTier();document.getElementById("dz-hint").textContent=t==="free"?`.srt and .vtt, up to ${FREE_LINE_LIMIT} lines on Free, no line limit on Solo and Team`:`.srt and .vtt, no line limit on your ${t==="team"?"Team":"Solo"} plan`;}
 
 function tcToSeconds(tc){tc=tc.trim().replace(",",".");const p=tc.split(":");let h=0,m=0,s=0;if(p.length===3){h=+p[0];m=+p[1];s=parseFloat(p[2]);}else if(p.length===2){m=+p[0];s=parseFloat(p[1]);}else s=parseFloat(p[0]);return h*3600+m*60+s;}
-function secondsToTc(sec,vtt){if(sec==null||isNaN(sec))sec=0;if(sec<0)sec=0;const h=Math.floor(sec/3600),m=Math.floor((sec%3600)/60),s=Math.floor(sec%60),ms=Math.round((sec-Math.floor(sec))*1000),sep=vtt?".":",",p=(n,l)=>String(n).padStart(l,"0");return `${p(h,2)}:${p(m,2)}:${p(s,2)}${sep}${p(ms,3)}`;}
-function parseSubtitles(raw){raw=raw.replace(/\r\n/g,"\n").replace(/\r/g,"\n").trim();const isVtt=/^WEBVTT/.test(raw);if(isVtt)raw=raw.replace(/^WEBVTT.*?(\n\n|$)/s,"").trim();const blocks=raw.split(/\n\s*\n/);const out=[];const timeRe=/(\d{1,2}:)?\d{1,2}:\d{2}[.,]\d{1,3}\s*-->\s*(\d{1,2}:)?\d{1,2}:\d{2}[.,]\d{1,3}/;for(const b of blocks){const lines=b.split("\n");let ti=-1;for(let i=0;i<lines.length;i++){if(timeRe.test(lines[i])){ti=i;break;}}if(ti===-1)continue;const m=lines[ti].match(/((?:\d{1,2}:)?\d{1,2}:\d{2}[.,]\d{1,3})\s*-->\s*((?:\d{1,2}:)?\d{1,2}:\d{2}[.,]\d{1,3})/);if(!m)continue;const text=lines.slice(ti+1).map(l=>l.trim()).filter(Boolean).join("\n");if(!text)continue;out.push({index:out.length+1,start:tcToSeconds(m[1]),end:tcToSeconds(m[2]),text,translation:""});}return out;}
+// Works in whole milliseconds, so float error (1.239 * 1000 = 1238.9999...) cannot drop a millisecond or give 1000.
+function secondsToTc(sec,vtt){if(sec==null||isNaN(sec)||sec<0)sec=0;const t=Math.round(sec*1000),h=Math.floor(t/3600000),m=Math.floor(t/60000)%60,s=Math.floor(t/1000)%60,ms=t%1000,sep=vtt?".":",",p=(n,l)=>String(n).padStart(l,"0");return `${p(h,2)}:${p(m,2)}:${p(s,2)}${sep}${p(ms,3)}`;}
+// Cue text is held as plain text plus the <i>, <b> and <u> tags that SRT and VTT share.
+// VTT text loses its other tags (voice, class, ruby, timestamps) and has its entities decoded
+// on the way in, so cueText escapes it exactly once on the way out. SRT text has no escaping.
+function vttToPlain(s){
+  const named={amp:"&",lt:"<",gt:">",nbsp:"\u00a0",lrm:"\u200e",rlm:"\u200f",quot:"\u0022",apos:"\u0027"};
+  return s.replace(/<(\/?)([a-z0-9]*)[^>]*>/gi,(m,c,t)=>/^[ibu]$/i.test(t)?"<"+c+t.toLowerCase()+">":"")
+    .replace(/&(?:#(\d+)|#x([0-9a-f]+)|([a-z]+));/gi,(m,d,x,n)=>{const cp=d?+d:x?parseInt(x,16):0;return n?(named[n.toLowerCase()]||m):cp>0&&cp<=0x10ffff?String.fromCodePoint(cp):m;});
+}
+function cueText(s,vtt){
+  s=String(s||"").replace(/\n\s*\n/g,"\n").trim();  // a blank line would end the cue early
+  if(!vtt)return s;
+  return s.replace(/<\/?font[^>]*>/gi,"").replace(/[&<>]/g,c=>c==="&"?"&amp;":c==="<"?"&lt;":"&gt;").replace(/&lt;(\/?)([ibu])&gt;/gi,(m,c,t)=>"<"+c+t.toLowerCase()+">");
+}
+function parseSubtitles(raw){raw=raw.replace(/\r\n/g,"\n").replace(/\r/g,"\n").trim();const isVtt=/^WEBVTT/.test(raw);if(isVtt)raw=raw.replace(/^WEBVTT.*?(\n\n|$)/s,"").trim();const blocks=raw.split(/\n\s*\n/);const out=[];const timeRe=/(\d{1,2}:)?\d{1,2}:\d{2}[.,]\d{1,3}\s*-->\s*(\d{1,2}:)?\d{1,2}:\d{2}[.,]\d{1,3}/;for(const b of blocks){const lines=b.split("\n");let ti=-1;for(let i=0;i<lines.length;i++){if(timeRe.test(lines[i])){ti=i;break;}}if(ti===-1)continue;const m=lines[ti].match(/((?:\d{1,2}:)?\d{1,2}:\d{2}[.,]\d{1,3})\s*-->\s*((?:\d{1,2}:)?\d{1,2}:\d{2}[.,]\d{1,3})/);if(!m)continue;let text=lines.slice(ti+1).map(l=>l.trim()).filter(Boolean).join("\n");if(isVtt)text=vttToPlain(text).trim();if(!text)continue;out.push({index:out.length+1,start:tcToSeconds(m[1]),end:tcToSeconds(m[2]),text,translation:""});}return out;}
 
 // Signed-in users send their session token so the Worker can apply their plan's limits.
 function authHeaders(base){const t=window.SubAuth&&window.SubAuth.token;return t?{...base,Authorization:"Bearer "+t}:base;}
-// The Worker explains its own rejections (daily limit, caption too long, site not allowed)
-// in a JSON body with a code. Returns that message, or "" for any other error.
-async function guardMessage(res){if(![403,413,429].includes(res.status))return "";try{const d=await res.clone().json();return d&&d.code&&d.error?String(d.error):"";}catch{return "";}}
-
-async function translateBatch(texts,source,target){
+// reason says what went wrong and advice says what to do next. The message joins the two.
+function translateError(reason,advice,flags){const e=new Error(advice?reason+" "+advice:reason);e.reason=reason;return Object.assign(e,flags);}
+// One request to the Worker. Errors carry flags so the callers can choose a recovery:
+// split (the Worker rejected the batch for its content: the model returned a different number of
+// lines than it was sent, or declined the text, and a smaller batch narrows that down), transient
+// (timeout, network failure, rate limit or 5xx, worth one more attempt) and wait (ms before that attempt).
+async function requestBatch(texts,source,target){
   if(DEMO){await new Promise(r=>setTimeout(r,350));return texts.map(t=>`[${target}] `+t);}
-  const res=await fetch(API_BASE.replace(/\/$/,"")+"/translate",{method:"POST",headers:authHeaders({"Content-Type":"application/json"}),body:JSON.stringify({source,target,cues:texts})});
-  const guardMsg=await guardMessage(res);
-  if(guardMsg)throw new Error(guardMsg);
-  if(res.status===429)throw new Error("Rate limit reached, try again shortly.");
-  if(!res.ok)throw new Error("Translation failed ("+res.status+")");
-  const d=await res.json();if(!d.translations||d.translations.length!==texts.length)throw new Error("Unexpected response");return d.translations;
+  // Abort a request that hangs, so the run moves on to a retry instead of stalling.
+  // The timer also covers reading the body, which can stall after the headers arrive.
+  const ctrl=new AbortController(), timer=setTimeout(()=>ctrl.abort(),REQUEST_TIMEOUT_MS);
+  let res,d=null;
+  try{
+    res=await fetch(API_BASE.replace(/\/$/,"")+"/translate",{method:"POST",headers:authHeaders({"Content-Type":"application/json"}),body:JSON.stringify({source,target,cues:texts}),signal:ctrl.signal});
+    try{d=await res.json();}catch(err){if(ctrl.signal.aborted)throw err;}
+  }
+  catch(err){
+    if(ctrl.signal.aborted)throw translateError("The translation server took too long to answer.","Please try again.",{transient:true});
+    throw translateError("Couldn't reach the translation server.","Check your connection and try again.",{transient:true});
+  }
+  finally{clearTimeout(timer);}
+  // The Worker's own rejections (daily limit, burst limit, caption too long, site not allowed)
+  // carry a code and a message for the user. Retrying or splitting cannot get past them.
+  if([403,413,429].includes(res.status)&&d&&d.code&&d.error)throw translateError(String(d.error),"",{code:String(d.code)});
+  if(res.status===429)throw translateError("Rate limit reached.","Try again shortly.",{transient:true,wait:4000});
+  if(!res.ok){
+    const split=res.status===422||(!!d&&d.error==="Translation count mismatch");
+    throw translateError("Translation failed ("+res.status+").","Please try again.",{split,transient:!split&&res.status>=500});
+  }
+  if(!d||!Array.isArray(d.translations))throw translateError("Unexpected response from the translation server.","Please try again.",{transient:true});
+  if(d.translations.length!==texts.length)throw translateError("Unexpected response from the translation server.","Please try again.",{split:true});
+  return d.translations;
+}
+// requestBatch plus one more attempt after a transient failure, paid from the budget.
+async function requestWithRetry(texts,source,target,budget){
+  try{return await requestBatch(texts,source,target);}
+  catch(e){
+    if(!e.transient||budget.left<1)throw e;
+    budget.left--;
+    await new Promise(r=>setTimeout(r,e.wait||1200));
+    return requestBatch(texts,source,target);
+  }
+}
+// Returns one entry per input line. null marks a line that could not be translated.
+// The model sometimes merges or splits lines that are fragments of one sentence, and the Worker
+// then rejects the whole batch. A smaller batch nearly always passes, so a rejected batch is
+// split in half and each half is sent again. budget.left caps the extra requests a batch may
+// spend, so one batch never costs more than 1 + SPLIT_BUDGET requests. When the budget runs out,
+// the lines still rejected come back as null and the rest is kept.
+async function translateBatch(texts,source,target,budget){
+  try{return await requestWithRetry(texts,source,target,budget);}
+  catch(e){
+    if(!e.split)throw e;
+    if(texts.length===1){
+      if(budget.left<1)return [null];
+      budget.left--;
+      try{return await requestWithRetry(texts,source,target,budget);}
+      catch(e2){if(e2.split)return [null];throw e2;}
+    }
+    if(budget.left<2)return texts.map(()=>null);
+    budget.left-=2;
+    const mid=Math.ceil(texts.length/2);
+    const a=await translateBatch(texts.slice(0,mid),source,target,budget);
+    const b=await translateBatch(texts.slice(mid),source,target,budget);
+    return a.concat(b);
+  }
+}
+// Translates texts batch by batch and writes each result into lines at the same index. A line
+// that could not be translated is left as it was. The run stops at the first error that
+// retrying and splitting did not get past and returns it, so the caller can keep the lines
+// translated up to that point.
+async function translateLines(texts,source,target,lines,onBatch){
+  let translated=0, missing=0, error=null;
+  for(let i=0;i<texts.length;i+=BATCH_SIZE){
+    let t;
+    try{t=await translateBatch(texts.slice(i,i+BATCH_SIZE),source,target,{left:SPLIT_BUDGET});}
+    catch(e){error=e;break;}
+    for(let j=0;j<t.length;j++){ if(t[j]==null)missing++; else{lines[i+j]=t[j];translated++;} }
+    if(onBatch)onBatch(Math.min(i+BATCH_SIZE,texts.length));
+  }
+  return {translated,missing,error};
 }
 async function addTranslation(){
   if(!cues.length){toast("Add a file or paste text first","error");return;}
-  if(cues.length>FREE_LINE_LIMIT){toast("Over the free limit, Pro handles full-length files","error");location.href="/pricing";return;}
+  const btn=document.getElementById("translate-btn"), old=btn.textContent;
+  if(overFreeLimit()&&!tierKnown()){btn.disabled=true;btn.textContent="Checking your plan…";await waitForTier();btn.disabled=false;btn.textContent=old;}
+  if(overFreeLimit()){updateLimitNote();toast(`This file has ${cues.length} lines, and the free limit is ${FREE_LINE_LIMIT} lines per file.`,"error",PLANS_LINK);return;}
   const sel=document.getElementById("tgt-lang");
   const code=sel.value, name=sel.selectedOptions[0].textContent.trim();
   if(langCols.some(l=>l.code===code)){toast(name+" is already added","error");return;}
-  const btn=document.getElementById("translate-btn"); btn.disabled=true; const old=btn.textContent; btn.textContent="Translating…";
+  btn.disabled=true; btn.textContent="Translating…";
   document.getElementById("progress-wrap").classList.add("show");
   const col={code,name,lines:cues.map(()=>"")}; langCols.push(col); render(); scrollToEnd();
   try{
-    let done=0;
-    for(let i=0;i<cues.length;i+=BATCH_SIZE){
-      const chunk=cues.slice(i,i+BATCH_SIZE).map(c=>c.text);
-      const t=await translateBatch(chunk,"auto",code);
-      for(let j=0;j<t.length;j++) col.lines[i+j]=t[j];
-      done+=t.length;
-      document.getElementById("progress-fill").style.width=Math.round(done/cues.length*100)+"%";
-      document.getElementById("progress-label").textContent=`Translating ${name}… ${done}/${cues.length}`;
+    const texts=cues.map(c=>c.text);
+    const r=await translateLines(texts,"auto",code,col.lines,done=>{
+      document.getElementById("progress-fill").style.width=Math.round(done/texts.length*100)+"%";
+      document.getElementById("progress-label").textContent=`Translating ${name}… ${done}/${texts.length}`;
       render();
+    });
+    // A plan limit from the Worker (daily quota, free capacity) gets a link to the plans.
+    const link=r.error&&PLAN_LIMIT_CODES.includes(r.error.code)?PLANS_LINK:undefined;
+    if(!r.translated){
+      langCols=langCols.filter(l=>l!==col); render();
+      toast(r.error?(r.error.message||"Translation failed"):"None of the lines could be translated. Please try again.","error",link);
     }
-    toast(name+" added","success"); scrollToEnd();
+    // A failure part of the way through keeps the lines that were translated before it.
+    else if(r.error) toast(`${name} stopped after ${r.translated} of ${texts.length} lines. ${r.error.reason||"Translation failed."} The translated lines were kept. To retry, remove the column and add ${name} again.`,"error",link);
+    else if(r.missing) toast(`${name} added, but ${r.missing} line${r.missing>1?"s":""} could not be translated. Fill in the empty box${r.missing>1?"es":""} by hand.`,"error");
+    else toast(name+" added","success");
+    scrollToEnd();
   }catch(e){
     langCols=langCols.filter(l=>l!==col); render();
-    toast(e.message||"Translation failed","error");
+    toast(e.message||"Translation failed","error",PLAN_LIMIT_CODES.includes(e.code)?PLANS_LINK:undefined);
   }finally{
     btn.disabled=false; btn.textContent=old;
     setTimeout(()=>document.getElementById("progress-wrap").classList.remove("show"),600);
@@ -244,7 +379,7 @@ function updateCnav(){
   p.disabled=vp.scrollLeft<=2;
   n.disabled=vp.scrollLeft>=vp.scrollWidth-vp.clientWidth-2;
 }
-function buildCol(code,vtt){const lines=code===SOURCE_KEY?cues.map(c=>c.text):((langCols.find(l=>l.code===code)||{}).lines||[]);const body=cues.map((c,i)=>`${i+1}\n${secondsToTc(c.start,vtt)} --> ${secondsToTc(c.end,vtt)}\n${lines[i]||""}\n`).join("\n");return vtt?"WEBVTT\n\n"+body:body;}
+function buildCol(code,vtt){const lines=code===SOURCE_KEY?cues.map(c=>c.text):((langCols.find(l=>l.code===code)||{}).lines||[]);const body=cues.map((c,i)=>`${i+1}\n${secondsToTc(c.start,vtt)} --> ${secondsToTc(c.end,vtt)}\n${cueText(lines[i],vtt)}\n`).join("\n");return vtt?"WEBVTT\n\n"+body:body;}
 function downloadCol(code,vtt){if(!cues.length){toast("Nothing to export","error");return;}const suffix=code===SOURCE_KEY?"original":code;const blob=new Blob([buildCol(code,vtt)],{type:"text/plain;charset=utf-8"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=`${sourceName}-${suffix}.${vtt?"vtt":"srt"}`;document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);}
 function ingest(raw,name){
   const parsed=parseSubtitles(raw);
@@ -258,18 +393,21 @@ function ingest(raw,name){
   document.getElementById("dz-name").textContent=name||"pasted text";
   document.getElementById("dz-count").textContent=cues.length;
   document.getElementById("translate-btn").disabled=false;
-  const note=document.getElementById("limit-note");
-  if(cues.length>FREE_LINE_LIMIT){note.innerHTML=`Loaded <strong style="color:var(--brand3)">${cues.length}</strong> lines, over the free limit of ${FREE_LINE_LIMIT}. <a href="/pricing">See Pro →</a>`;}
-  else{note.innerHTML=`Loaded <strong>${cues.length}</strong> lines. Pick a language and hit Add translation.`;}
+  updateLimitNote();
   render();
 }
-function handleFile(f){if(!f)return;if(f.size>2*1024*1024){toast("File too large (2 MB max free)","error");return;}sourceName=f.name;const r=new FileReader();r.onload=e=>ingest(e.target.result,f.name);r.readAsText(f);}
+function handleFile(f){if(!f)return;if(f.size>2*1024*1024){toast("File too large (2 MB max)","error");return;}sourceName=f.name;const r=new FileReader();r.onload=e=>ingest(e.target.result,f.name);r.readAsText(f);}
 // (translate button state is handled inline in addTranslation)
-let toastTimer=null;function toast(msg,type){const el=document.getElementById("toast");el.textContent=msg;el.className="toast show"+(type?" "+type:"");clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.classList.remove("show"),2200);}
+// link ({href,text}) adds a link after the message and keeps the toast up long enough to click it.
+let toastTimer=null;function toast(msg,type,link){const el=document.getElementById("toast");el.textContent=msg;if(link){const a=document.createElement("a");a.href=link.href;a.textContent=link.text;el.append(" ",a);}el.className="toast show"+(type?" "+type:"")+(link?" linked":"");clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.classList.remove("show"),link?Math.max(10000,msg.length*70):type==="error"?Math.max(6000,msg.length*70):2200);}
 (function init(){
   const tgt=document.getElementById("tgt-lang");
   tgt.innerHTML=LANGUAGES.map(([n,c,f])=>`<option value="${c}">${f?f+" ":""}${n}</option>`).join("");tgt.value="es";
-  document.getElementById("lim").textContent=FREE_LINE_LIMIT;
+  updateHint();
+  // The plan arrives after load: refresh the hint and the line-limit note when it does,
+  // and once more when the wait for it runs out.
+  document.addEventListener("subauth",()=>{updateHint();updateLimitNote();});
+  setTimeout(updateLimitNote,TIER_WAIT_MS+50);
   if(DEMO)document.getElementById("demo-flag").classList.add("show");
   const codes=LANGUAGES.map(l=>l[1]),qp=new URLSearchParams(location.search);
   if(qp.get("to")&&codes.includes(qp.get("to")))tgt.value=qp.get("to");

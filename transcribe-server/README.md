@@ -53,8 +53,11 @@ docker run -p 8080:8080 -e OPENAI_API_KEY=sk-... -e PRO_TOKEN=... subcaptions-tr
 | `WHISPER_MODEL` | `whisper-1` | `whisper-large-v3` on Groq |
 | `PRO_TOKEN` | unset | Shared secret; auto-captions are Pro-only |
 | `ALLOWED_ORIGIN` | `*` | Set to your domain before launch |
-| `MAX_MINUTES` | `240` | Hard cap to bound cost/abuse |
-| `YTDLP_PROXY` | unset | Proxy for yt-dlp (see the caveat below) |
+| `MAX_MINUTES` | `240` | Hard cap to bound cost/abuse; checked before download (413 when over) |
+| `YTDLP_PROXY` | unset | Proxy for yt-dlp (see the caveat below). When set, yt-dlp bypasses the internal egress guard and only the up-front URL check applies |
+| `DEV_ALLOW_ALL` | unset | `true` treats every caller as Team when `SUPABASE_URL` and `PRO_TOKEN` are unset. Local testing only |
+| `PEAKS_PER_10MIN` | `20` | Per-IP limit on `/peaks` (waveform) requests |
+| `TRUST_PROXY_HOPS` | `1` | Proxy hops in front of the server, so the rate limit sees the client IP |
 
 ## Cost
 Whisper is about **$0.006/minute** on OpenAI (a 45-min video ≈ $0.27; an hour ≈ $0.36).

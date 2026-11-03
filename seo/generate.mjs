@@ -7,7 +7,7 @@
  *   /translate-srt-to-<lang>/index.html   (one per TARGET_LANGUAGES row)
  *   /<use-case-slug>/index.html           (one per USE_CASES row)
  *   /languages/index.html                 (index of all language pages)
- *   /pricing                         (free vs Pro)
+ *   /pricing.html, /privacy.html, /terms.html  (served at /pricing, /privacy, /terms)
  *   /styles/pages.css                     (shared stylesheet)
  *   /sitemap.xml, /robots.txt
  *
@@ -18,7 +18,7 @@
 import { writeFileSync, mkdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
-import { SITE, TARGET_LANGUAGES, DEFAULT_SOURCE, USE_CASES, CAPTIONER_PAGES } from "./data.mjs";
+import { SITE, TARGET_LANGUAGES, DEFAULT_SOURCE, USE_CASES, CAPTIONER_PAGES, LANGUAGE_COUNT } from "./data.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -32,7 +32,7 @@ function write(relPath, content) {
 }
 
 /* ---------- shared shell ---------- */
-function page({ title, metaDesc, canonical, h1, bodyHtml, jsonLd }) {
+function page({ title, metaDesc, canonical, h1, bodyHtml, jsonLd, extraHead }) {
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -48,13 +48,13 @@ function page({ title, metaDesc, canonical, h1, bodyHtml, jsonLd }) {
 <link rel="icon" type="image/svg+xml" href="/assets/logo.svg" />
 <link rel="icon" type="image/png" sizes="32x32" href="/assets/logo-32.png" />
 <link rel="apple-touch-icon" href="/assets/logo-180.png" />
-${jsonLd ? `<script type="application/ld+json">${JSON.stringify(jsonLd)}</script>` : ""}
+${jsonLd ? `<script type="application/ld+json">${JSON.stringify(jsonLd)}</script>` : ""}${extraHead || ""}
 </head>
 <body>
 <header class="nav"><div class="wrap nav-inner">
-  <a class="brand" href="/"><img class="mark" src="/assets/logo.svg" width="40" height="40" alt="" /> ${esc(SITE.name)}</a>
+  <a class="brand" href="/"><img class="mark" src="/assets/logo.svg" width="40" height="40" alt="" /> <span class="brand-name">${esc(SITE.name)}</span></a>
   <nav class="nav-links">
-    <a href="/">Caption</a>
+    <a href="/" class="nav-caption">Caption</a>
     <a href="/translate">Translate</a>
     <a href="/pricing">Pricing</a>
     <a href="#" id="account-link" data-account>Sign in</a>
@@ -94,24 +94,24 @@ function langPage(lang) {
   const slug = `translate-srt-to-${slugify(lang.name)}`;
   const canonical = `${SITE.origin}/${slug}/`;
   const title = `Translate SRT to ${lang.name}, Free Subtitle Translator`;
-  const metaDesc = `Translate .srt and .vtt subtitle files from ${DEFAULT_SOURCE.name} to ${lang.name} (${lang.native}) free. AI translation, preview on video, no signup, files never stored.`;
+  const metaDesc = `Translate .srt and .vtt subtitle files from ${DEFAULT_SOURCE.name} to ${lang.name} (${lang.native}) free. AI translation, timecodes preserved, no signup.`;
   const h1 = `Translate SRT subtitles to ${lang.name}`;
   const deep = `/translate?from=${DEFAULT_SOURCE.code}&to=${encodeURIComponent(lang.code)}`;
 
-  const intro = `Translate your <strong>.srt</strong> or <strong>.vtt</strong> subtitles from ${DEFAULT_SOURCE.name} into ${lang.name} (${esc(lang.native)}) in a couple of clicks. ${lang.name} reaches roughly <strong>${esc(lang.speakers)} speakers</strong>, ${esc(lang.note)}. The translation keeps your exact timecodes, and you can preview the ${lang.name} captions on the real video before you export.`;
+  const intro = `Translate your <strong>.srt</strong> or <strong>.vtt</strong> subtitles from ${DEFAULT_SOURCE.name} into ${lang.name} (${esc(lang.native)}) in a couple of clicks. ${lang.name} reaches roughly <strong>${esc(lang.speakers)} speakers</strong>, ${esc(lang.note)}. The translation keeps your exact timecodes, and you can edit any line before you export.`;
 
   const steps = [
     `Drop your ${DEFAULT_SOURCE.name} .srt or .vtt file onto the page (or paste the text).`,
     `${lang.name} is pre-selected as the target, just hit Translate.`,
     `Review the ${lang.name} translation and tweak any line inline.`,
-    `Preview it on the actual video to check reading speed and line length.`,
+    `To check reading speed and line length on the picture, import the file into the captioner on the home page.`,
     `Download your ${lang.name} subtitles as .srt or .vtt.`,
   ];
   const faq = [
     [`Is the ${DEFAULT_SOURCE.name}-to-${lang.name} translation any good?`, `It's powered by a large language model that translates for natural spoken register, not word-for-word, which matters for subtitles, where literal translations read awkwardly. You can edit any line before exporting, so you stay in control of the final ${lang.name} text.`],
     [`Will the timing still match after translating to ${lang.name}?`, `Yes. Only the text is translated; every start and end timecode is preserved exactly, so the ${lang.name} track stays in sync. Use the video preview to confirm the ${lang.name} lines are short enough to read in the time available.`],
-    [`Is it really free to translate SRT to ${lang.name}?`, `Single files up to the free line limit are free with no signup. Larger files and batch jobs are covered by the paid Pro tier.`],
-    [`Are my files uploaded to a server?`, `No. Your subtitle file is parsed entirely in your browser. Only the caption text is sent to the translation engine, and it is never stored or logged.`],
+    [`Is it really free to translate SRT to ${lang.name}?`, `Files up to 200 lines are free with no signup. Solo and Team plans add unlimited translations, AI auto-captions, and video upload in the captioner on the home page.`],
+    [`Are my files uploaded to a server?`, `The file is read in your browser and is not uploaded as a file. The caption text is sent to our translation service, which passes it to Anthropic's API to be translated. Our service does not store or log the text.`],
   ];
 
   const { html: faqHtml, jsonLd } = faqBlock(faq);
@@ -119,7 +119,7 @@ function langPage(lang) {
     <nav class="crumbs"><a href="/">Home</a> › <a href="/languages/">Languages</a> › <span>${esc(lang.name)}</span></nav>
     <h1>${esc(h1)}</h1>
     <p class="lede">${intro}</p>
-    <div class="cta-row">${cta(deep, `Translate to ${lang.name} →`)}<span class="cta-note">🔒 Free · no signup · files never stored</span></div>
+    <div class="cta-row">${cta(deep, `Translate to ${lang.name} →`)}<span class="cta-note">🔒 Free up to 200 lines · no signup</span></div>
     ${stepsBlock(steps)}
     ${faqHtml}
     <section class="related"><h2>Translate to other languages</h2><div class="chips">${TARGET_LANGUAGES.filter((l) => l.code !== lang.code).slice(0, 12).map((l) => `<a href="/translate-srt-to-${slugify(l.name)}/">${esc(l.name)}</a>`).join("")}</div></section>
@@ -136,7 +136,7 @@ function useCasePage(uc) {
     <nav class="crumbs"><a href="/">Home</a> › <span>${esc(uc.title)}</span></nav>
     <h1>${esc(uc.h1)}</h1>
     <p class="lede">${esc(uc.intro)}</p>
-    <div class="cta-row">${cta("/translate", "Open the translator →")}<span class="cta-note">🔒 Free · no signup · files never stored</span></div>
+    <div class="cta-row">${cta("/translate", "Open the translator →")}<span class="cta-note">🔒 Free up to 200 lines · no signup</span></div>
     ${stepsBlock(uc.steps)}
     ${faqHtml}
     <section class="related"><h2>Popular language pairs</h2><div class="chips">${TARGET_LANGUAGES.slice(0, 12).map((l) => `<a href="/translate-srt-to-${slugify(l.name)}/">SRT to ${esc(l.name)}</a>`).join("")}</div></section>
@@ -174,24 +174,26 @@ function languagesIndex() {
     .join("");
   const bodyHtml = `
     <nav class="crumbs"><a href="/">Home</a> › <span>Languages</span></nav>
-    <h1>Translate subtitles into any language</h1>
-    <p class="lede">Pick a language to translate your .srt or .vtt subtitles into. Every page opens the tool with that language pre-selected.</p>
+    <h1>Translate subtitles into ${LANGUAGE_COUNT} languages</h1>
+    <p class="lede">Pick a language to translate your .srt or .vtt subtitles into. Every page opens the tool with that language pre-selected. These ${TARGET_LANGUAGES.length} pages cover the most requested languages, and the translator offers ${LANGUAGE_COUNT} in total.</p>
     <div class="lang-grid">${rows}</div>
     <section class="related"><h2>Captioning guides</h2>${guideChips()}</section>
   `;
-  return page({ title: `Translate Subtitles, All Languages | ${SITE.name}`, metaDesc: `Translate .srt and .vtt subtitle files into ${TARGET_LANGUAGES.length}+ languages free. Spanish, French, Japanese, Hindi, Arabic, and more.`, canonical, h1: "All languages", bodyHtml });
+  return page({ title: `Translate Subtitles, All Languages | ${SITE.name}`, metaDesc: `Translate .srt and .vtt subtitle files into ${LANGUAGE_COUNT} languages free. Spanish, French, Japanese, Hindi, Arabic, and more.`, canonical, h1: "All languages", bodyHtml });
 }
 
 /* ---------- pricing ---------- */
+// Inline copy of the .soon badge style; the committed styles/pages.css does not include it.
+const SOON_STYLE = `<style>.soon{font-style:normal;font-size:11px;font-weight:700;color:#9a3412;background:#ffedd5;border-radius:6px;padding:1px 7px;margin-left:4px;vertical-align:middle;white-space:nowrap}</style>`;
 function pricingPage() {
   const canonical = `${SITE.origin}/pricing`;
   const bodyHtml = `
     <nav class="crumbs"><a href="/">Home</a> › <span>Pricing</span></nav>
-    <h1>Pricing that undercuts everyone</h1>
-    <p class="lede">Caption by hand for free. Solo adds AI auto-captions, unlimited translations, and burned-in export for a fraction of the usual price. Team lets you hand a project to a translator who works right on the video.</p>
+    <h1>Pricing</h1>
+    <p class="lede">Caption by hand for free. Solo adds AI auto-captions (for uploaded files and for direct, Dropbox, Google Drive, and Frame.io links) and unlimited translations. Team adds translator handoff, where you send a link and your translator subtitles in their browser. On any plan, a free account keeps your projects in sync across devices.</p>
     <div class="bill-toggle">
       <button type="button" class="bill-opt active" data-bill="monthly">Monthly</button>
-      <button type="button" class="bill-opt" data-bill="yearly">Yearly <span class="bill-save">save 20%</span></button>
+      <button type="button" class="bill-opt" data-bill="yearly">Yearly <span class="bill-save">2 months free</span></button>
     </div>
     <div class="price-grid">
       <div class="price-card">
@@ -202,8 +204,8 @@ function pricingPage() {
           <li>Captions saved in your browser</li>
           <li>.srt &amp; .vtt export, no watermark</li>
           <li>One translation per video</li>
-          <li>50+ languages</li>
-          <li>No signup</li>
+          <li>${LANGUAGE_COUNT} languages</li>
+          <li>No signup, or a free account to sync projects across devices</li>
         </ul>
         <a class="cta" href="/">Caption a video →</a>
         <p class="price-fine">No card required.</p>
@@ -213,10 +215,10 @@ function pricingPage() {
         <h2>Solo</h2>
         <div class="price" data-mo="6" data-yr="60">$6<span>/mo</span></div>
         <ul>
-          <li>AI auto-captions (any language)</li>
+          <li>AI auto-captions for uploads and direct, Dropbox, Drive, and Frame.io links (not YouTube or Vimeo)</li>
           <li>Full-length videos, no cap</li>
-          <li>Unlimited translations, many at once</li>
-          <li>Video file upload (up to 2&nbsp;GB)</li>
+          <li>Unlimited translations (fair-use daily limit)</li>
+          <li>Video file upload (up to 2&nbsp;GB, deleted after 7 days)</li>
           <li>Burned-in video export (1080p) <em class="soon">coming soon</em></li>
           <li>Everything in Free</li>
         </ul>
@@ -229,7 +231,6 @@ function pricingPage() {
         <ul>
           <li>Everything in Solo</li>
           <li>Hand off to a translator with a share link</li>
-          <li>Cloud-saved projects across devices</li>
           <li>4K &amp; long-form burned-in export <em class="soon">coming soon</em></li>
           <li>Priority processing <em class="soon">coming soon</em></li>
         </ul>
@@ -251,6 +252,7 @@ function pricingPage() {
         document.querySelectorAll(".price-fine[data-mo-fine]").forEach(function (f) {
           f.textContent = yearly ? f.dataset.yrFine : f.dataset.moFine;
         });
+        // Changing data-plan resets the tier-aware label, so re-apply it.
         if (window.SubAuth && window.SubAuth.relabelPlans) window.SubAuth.relabelPlans();
       }
       function wire() {
@@ -267,16 +269,16 @@ function pricingPage() {
     <div class="lang-grid">
       <div class="lang-card"><strong>Caption on the live video</strong><span>Type in time with the picture, not a wall of text in a side panel.</span></div>
       <div class="lang-card"><strong>Any language</strong><span>Including ones auto-captions and the big editors don't support.</span></div>
-      <div class="lang-card"><strong>Hand off to a translator</strong><span>They work right on the video, with no file round-trips.</span></div>
-      <div class="lang-card"><strong>Festival-ready by default</strong><span>Enforces 42-character lines and readable timing automatically.</span></div>
-      <div class="lang-card"><strong>Stays in your browser</strong><span>Your files are parsed locally and never uploaded.</span></div>
+      <div class="lang-card"><strong>Hand off to a translator</strong><span>Team plan. They work right on the video, with no file round-trips.</span></div>
+      <div class="lang-card"><strong>Subtitle limits built in</strong><span>Lines are capped at 42 characters and two per caption, and the editor warns when a caption is too fast to read.</span></div>
+      <div class="lang-card"><strong>Short-lived video storage</strong><span>Linked videos play from their own site. Uploaded files are deleted after 7 days. See the <a href="/privacy">privacy policy</a>.</span></div>
       <div class="lang-card"><strong>No signup to start</strong><span>Caption and export for free, instantly.</span></div>
     </div>
 
-    <p class="lede" style="margin-top:24px;font-size:14px;">Higher volume or API access for an agency? <a href="/">Get in touch.</a></p>
+    <p class="lede" style="margin-top:24px;font-size:14px;">Need higher volume for an agency or team? <a href="mailto:support@subcaptions.com">Get in touch.</a></p>
     <script type="module" src="/lib/auth.js"></script>
   `;
-  return page({ title: `Pricing | ${SITE.name}`, metaDesc: "SubCaptions pricing. Caption free; Solo $6/mo for AI captions, full-length, and burned-in export; Team $12/mo for translator handoff and 4K burn-in.", canonical, h1: "Pricing", bodyHtml });
+  return page({ title: `Pricing | ${SITE.name}`, metaDesc: "SubCaptions pricing. Caption free; Solo $6/mo adds AI auto-captions, full-length videos, and unlimited translations; Team $12/mo adds translator handoff.", canonical, h1: "Pricing", bodyHtml, extraHead: SOON_STYLE });
 }
 
 /* ---------- shared stylesheet ---------- */
@@ -299,6 +301,9 @@ header.nav .nav-links{display:flex;align-items:center;gap:26px}
 header.nav .nav-links a{color:var(--text-soft);font-size:14.5px;font-weight:500;margin:0}header.nav .nav-links a:hover{color:var(--text);text-decoration:none}
 #account-link{background:var(--grad);color:#fff;padding:8px 16px;border-radius:10px;font-weight:600;box-shadow:var(--shadow-sm)}#account-link:hover{filter:brightness(1.06);color:#fff;text-decoration:none}
 @media(max-width:560px){header.nav .nav-links{gap:16px}header.nav .nav-links a{font-size:13px}}
+/* Phones: keep the header inside 375px with no sideways scroll, as on the home page. */
+@media(max-width:480px){.brand .mark{width:34px;height:34px}.brand-name{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}header.nav .nav-links{gap:12px}#account-link{padding:6px 10px}}
+@media(max-width:400px){.nav-caption{display:none}}
 .crumbs{color:var(--muted);font-size:13px;margin-bottom:16px}.crumbs span{color:var(--text)}
 h1{font-family:var(--fd);font-size:clamp(28px,4vw,40px);font-weight:700;letter-spacing:-0.8px;margin-bottom:16px;line-height:1.12}
 h2{font-family:var(--fd);font-size:23px;margin:34px 0 14px;letter-spacing:-0.3px}
@@ -344,7 +349,7 @@ footer.site a{color:var(--text-soft);margin:0 7px}.fine{margin-top:10px}
 
 /* ---------- run ---------- */
 console.log("Generating SEO pages…");
-const urls = [`${SITE.origin}/`, `${SITE.origin}/translate`, `${SITE.origin}/languages/`, `${SITE.origin}/pricing`];
+const urls = [`${SITE.origin}/`, `${SITE.origin}/translate`, `${SITE.origin}/languages/`, `${SITE.origin}/pricing`, `${SITE.origin}/subtitle-specs/`, `${SITE.origin}/privacy`, `${SITE.origin}/terms`];
 
 function legalPage(slug, h1, inner) {
   const bodyHtml = `
@@ -356,29 +361,29 @@ function legalPage(slug, h1, inner) {
 }
 
 function privacyPage() {
-  return legalPage("privacy.html", "Privacy Policy", `
-    <p class="lede">Last updated: June 22, 2026. This explains what SubCaptions collects, how it is used, and the choices you have. SubCaptions is a browser-based subtitle and caption editor, built to keep your video content on your own device.</p>
+  return legalPage("privacy", "Privacy Policy", `
+    <p class="lede">Last updated: November 3, 2026. This explains what SubCaptions collects, how it is used, and the choices you have. SubCaptions is a browser-based subtitle and caption editor.</p>
 
     <h2>The short version</h2>
-    <p class="lede" style="font-size:15px;">Your video files are never uploaded to us. Captions you create are saved locally in your browser. We collect only what we need to run accounts and billing (your email and plan), and we use a few trusted services, listed below, to handle sign-in, payments, and AI features. We do not sell your data or run advertising trackers.</p>
+    <p class="lede" style="font-size:15px;">Captions you write are saved in your browser on your device. If you sign in, your projects are also saved to your account on our servers. Videos you link from sites such as YouTube or Vimeo play from those sites. Videos you send for AI auto-captions, or upload on a paid plan, are handled on our servers as described below. We collect what we need to run accounts and billing (your email and plan), and we use a few outside services for sign-in, payments, hosting, translation, and speech-to-text. We do not sell your data.</p>
 
     <h2>What we collect</h2>
-    <p class="lede" style="font-size:15px;"><strong>Account.</strong> If you sign in, we store your email address and (from Google sign-in) your display name, plus your plan tier. <strong>Billing.</strong> Payments are handled by a third-party payment processor; we receive your subscription status and a customer ID, never your full card number. <strong>Basic technical data.</strong> Like most sites, our host may log standard request information (such as IP and browser type) for security and reliability.</p>
+    <p class="lede" style="font-size:15px;"><strong>Account.</strong> If you sign in, we store your email address and (from Google sign-in) your display name, plus your plan tier. Sign-in is handled by Supabase. <strong>Billing.</strong> Payments are handled by Stripe; we receive your subscription status and a customer ID, never your full card number. <strong>Projects.</strong> If you are signed in, we save each project to our database: its captions, any translations, the video link, and a small thumbnail image. <strong>Uploaded videos.</strong> On a Solo or Team plan you can upload a video file of up to 2 GB. It is stored in Cloudflare R2 storage and deleted automatically after 7 days, or sooner if you delete it. <strong>Basic technical data.</strong> Like most sites, our hosts may log standard request information (such as IP address and browser type) for security and reliability.</p>
 
-    <h2>What we do not collect</h2>
-    <p class="lede" style="font-size:15px;">We do not store your video files. The captions you write are kept in your browser's local storage on your device, not on our servers (Team cloud projects, when offered, are an explicit opt-in). We do not sell personal data and we do not use third-party advertising cookies.</p>
+    <h2>What we do not do</h2>
+    <p class="lede" style="font-size:15px;">We do not sell personal data and we do not use third-party advertising cookies. When you paste a link, the video plays in your browser from the site that hosts it, and we do not copy it unless you ask for AI auto-captions.</p>
 
     <h2>How your caption content is handled</h2>
-    <p class="lede" style="font-size:15px;">Subtitle files you open are parsed entirely in your browser. When you use translation, only the caption text is sent to the translation provider to translate it, and it is not stored or used to train models. If you use AI auto-captions, the audio is sent to a transcription provider to generate text and is not retained after processing.</p>
+    <p class="lede" style="font-size:15px;"><strong>Subtitle files.</strong> A subtitle file you open on the translate page is read in your browser and is not uploaded as a file. <strong>Translation.</strong> When you use translation, the caption text is sent to our translation service, which passes it to Anthropic's API to produce the translation. Our service does not store or log the text, and Anthropic's own terms apply to its handling of that data. <strong>AI auto-captions (Solo and Team).</strong> Your uploaded file or video link is sent to our transcription server, which downloads the video temporarily, extracts the audio, and sends the audio to a third-party speech-to-text provider to generate the text. The temporary files are deleted when processing ends, and the provider's own terms apply to the audio it receives. <strong>Share links (Team).</strong> If you create a share link for a translator, anyone who has the link can open the shared project and, by default, edit its captions without signing in. Each link stops working 30 days after you create it, and you can revoke a link sooner from the share window.</p>
 
     <h2>Services we rely on</h2>
-    <p class="lede" style="font-size:15px;">We rely on a small set of trusted third-party providers purely to run the service: cloud hosting and content delivery, account sign-in, payment processing, AI language translation, and AI speech-to-text for auto-captions. Each receives only the data needed for its function, under its own privacy terms, and none of them receive your video files.</p>
+    <p class="lede" style="font-size:15px;">We rely on a small set of third-party providers to run the service: Cloudflare (hosting, content delivery, and upload storage), Render (application servers), Supabase (sign-in and the project database), Stripe (payments), Anthropic (AI translation), a speech-to-text provider (auto-captions), Google (Google sign-in and Google Fonts), esm.sh (delivers the sign-in code library), and Frame.io if you connect your account to load video from it. Videos from YouTube and Vimeo load those services' own embedded players. Each receives the data needed for its function, under its own privacy terms.</p>
 
     <h2>Cookies and local storage</h2>
     <p class="lede" style="font-size:15px;">We use your browser's local storage to keep you signed in and to save your captions on your device. We do not use advertising or cross-site tracking cookies.</p>
 
     <h2>Retention and your choices</h2>
-    <p class="lede" style="font-size:15px;">We keep account and billing data while your account is active. You can clear your captions any time from within the editor. To access, correct, or delete your account data, email us and we will action it.</p>
+    <p class="lede" style="font-size:15px;">We keep account and billing data while your account is active. Projects stay in your account until you delete them: removing a project from your recent projects list in the editor also removes its cloud copy. Uploaded videos expire after 7 days and can be deleted sooner from the editor. Captions saved in your browser stay there until you delete the project or clear your browser's site data. To access, correct, or delete your account data, email us and we will action it.</p>
 
     <h2>Children</h2>
     <p class="lede" style="font-size:15px;">SubCaptions is not directed to children under 13, and we do not knowingly collect their data.</p>
@@ -388,7 +393,7 @@ function privacyPage() {
 }
 
 function termsPage() {
-  return legalPage("terms.html", "Terms of Service", `
+  return legalPage("terms", "Terms of Service", `
     <p class="lede">Last updated: June 22, 2026. These terms govern your use of SubCaptions. By using the site, you agree to them.</p>
 
     <h2>The service</h2>

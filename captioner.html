@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>YouTube Subtitle Captioner — Create &amp; Time Captions on a Video</title>
+<title>YouTube Subtitle Captioner: Create &amp; Time Captions on a Video</title>
 <style>
   :root {
     --bg: #141414;
@@ -184,7 +184,7 @@
   <header>
     <h1>YouTube Subtitle Captioner</h1>
     <div style="display:flex;gap:6px;align-items:center;">
-      <a class="change-link" href="index.html" style="text-decoration:none;">← Translate a file</a>
+      <a class="change-link" href="/translate" style="text-decoration:none;">← Translate a file</a>
       <button class="change-link" onclick="changeVideo()">Change video</button>
     </div>
   </header>
@@ -210,12 +210,12 @@
         <div class="marks">
           <div class="mark">
             <label>Start time</label>
-            <div class="time" id="startDisplay">— — : — — : — —</div>
+            <div class="time" id="startDisplay">-- : -- : --</div>
             <button onclick="markStart()">Mark Start</button>
           </div>
           <div class="mark">
             <label>End time</label>
-            <div class="time" id="endDisplay">— — : — — : — —</div>
+            <div class="time" id="endDisplay">-- : -- : --</div>
             <button onclick="markEnd()">Mark End</button>
           </div>
         </div>
@@ -318,7 +318,7 @@ function extractVideoId(url) {
 }
 
 function formatTime(seconds, srt = false) {
-  if (seconds == null || isNaN(seconds)) return '— — : — — : — —';
+  if (seconds == null || isNaN(seconds)) return '-- : -- : --';
   if (seconds < 0) seconds = 0;
   const h = Math.floor(seconds / 3600);
   const m = Math.floor((seconds % 3600) / 60);
@@ -381,8 +381,8 @@ function markEnd() {
 
 function clearCurrent() {
   currentStart = null; currentEnd = null; editingIdx = null;
-  document.getElementById('startDisplay').textContent = '— — : — — : — —';
-  document.getElementById('endDisplay').textContent = '— — : — — : — —';
+  document.getElementById('startDisplay').textContent = '-- : -- : --';
+  document.getElementById('endDisplay').textContent = '-- : -- : --';
   document.getElementById('line1').value = '';
   document.getElementById('line2').value = '';
   document.querySelector('.save-btn').textContent = 'Save Caption';
@@ -515,7 +515,7 @@ function handleLine1Input() {
 }
 document.getElementById('line1').addEventListener('input', handleLine1Input);
 
-// Keyboard shortcuts (kept invisible — Space play/pause, S/E mark, Enter save)
+// Keyboard shortcuts (kept invisible: Space play/pause, S/E mark, Enter save)
 document.addEventListener('keydown', (e) => {
   const isTyping = ['INPUT','TEXTAREA'].includes(document.activeElement.tagName);
   const mod = e.metaKey || e.ctrlKey;

@@ -23,6 +23,10 @@ TEAM_DAILY_CHARS = "2000000"       # per Team account
 
 # Plan check. Same Supabase project as the upload Worker.
 SUPABASE_URL = "https://knuprwhbesymksfcaqav.supabase.co"
+# The public (publishable) key, the same one the site ships in lib/auth.js. Kept here rather
+# than as a secret so a deploy can never go out without it: without it every paying user
+# would get the free limits.
+SUPABASE_ANON_KEY = "sb_publishable_XY_o9FB8t6SLX5GF0Cb6yg_Ow-7EPrg"
 
 # Secrets (do NOT put them here). Set them with:
 #   wrangler secret put ANTHROPIC_API_KEY

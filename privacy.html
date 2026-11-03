@@ -17,9 +17,9 @@
 </head>
 <body>
 <header class="nav"><div class="wrap nav-inner">
-  <a class="brand" href="/"><img class="mark" src="/assets/logo.svg" width="40" height="40" alt="" /> SubCaptions</a>
+  <a class="brand" href="/"><img class="mark" src="/assets/logo.svg" width="40" height="40" alt="" /> <span class="brand-name">SubCaptions</span></a>
   <nav class="nav-links">
-    <a href="/">Caption</a>
+    <a href="/" class="nav-caption">Caption</a>
     <a href="/translate">Translate</a>
     <a href="/pricing">Pricing</a>
     <a href="#" id="account-link" data-account>Sign in</a>
@@ -30,28 +30,28 @@
     <nav class="crumbs"><a href="/">Home</a> › <span>Privacy Policy</span></nav>
     <h1>Privacy Policy</h1>
     <div class="legal">
-    <p class="lede">Last updated: June 22, 2026. This explains what SubCaptions collects, how it is used, and the choices you have. SubCaptions is a browser-based subtitle and caption editor, built to keep your video content on your own device.</p>
+    <p class="lede">Last updated: November 3, 2026. This explains what SubCaptions collects, how it is used, and the choices you have. SubCaptions is a browser-based subtitle and caption editor.</p>
 
     <h2>The short version</h2>
-    <p class="lede" style="font-size:15px;">Your video files are never uploaded to us. Captions you create are saved locally in your browser. We collect only what we need to run accounts and billing (your email and plan), and we use a few trusted services, listed below, to handle sign-in, payments, and AI features. We do not sell your data or run advertising trackers.</p>
+    <p class="lede" style="font-size:15px;">Captions you write are saved in your browser on your device. If you sign in, your projects are also saved to your account on our servers. Videos you link from sites such as YouTube or Vimeo play from those sites. Videos you send for AI auto-captions, or upload on a paid plan, are handled on our servers as described below. We collect what we need to run accounts and billing (your email and plan), and we use a few outside services for sign-in, payments, hosting, translation, and speech-to-text. We do not sell your data.</p>
 
     <h2>What we collect</h2>
-    <p class="lede" style="font-size:15px;"><strong>Account.</strong> If you sign in, we store your email address and (from Google sign-in) your display name, plus your plan tier. <strong>Billing.</strong> Payments are handled by a third-party payment processor; we receive your subscription status and a customer ID, never your full card number. <strong>Basic technical data.</strong> Like most sites, our host may log standard request information (such as IP and browser type) for security and reliability.</p>
+    <p class="lede" style="font-size:15px;"><strong>Account.</strong> If you sign in, we store your email address and (from Google sign-in) your display name, plus your plan tier. Sign-in is handled by Supabase. <strong>Billing.</strong> Payments are handled by Stripe; we receive your subscription status and a customer ID, never your full card number. <strong>Projects.</strong> If you are signed in, we save each project to our database: its captions, any translations, the video link, and a small thumbnail image. <strong>Uploaded videos.</strong> On a Solo or Team plan you can upload a video file of up to 2 GB. It is stored in Cloudflare R2 storage and deleted automatically after 7 days, or sooner if you delete it. <strong>Basic technical data.</strong> Like most sites, our hosts may log standard request information (such as IP address and browser type) for security and reliability.</p>
 
-    <h2>What we do not collect</h2>
-    <p class="lede" style="font-size:15px;">We do not store your video files. The captions you write are kept in your browser's local storage on your device, not on our servers (Team cloud projects, when offered, are an explicit opt-in). We do not sell personal data and we do not use third-party advertising cookies.</p>
+    <h2>What we do not do</h2>
+    <p class="lede" style="font-size:15px;">We do not sell personal data and we do not use third-party advertising cookies. When you paste a link, the video plays in your browser from the site that hosts it, and we do not copy it unless you ask for AI auto-captions.</p>
 
     <h2>How your caption content is handled</h2>
-    <p class="lede" style="font-size:15px;">Subtitle files you open are parsed entirely in your browser. When you use translation, only the caption text is sent to the translation provider to translate it, and it is not stored or used to train models. If you use AI auto-captions, the audio is sent to a transcription provider to generate text and is not retained after processing.</p>
+    <p class="lede" style="font-size:15px;"><strong>Subtitle files.</strong> A subtitle file you open on the translate page is read in your browser and is not uploaded as a file. <strong>Translation.</strong> When you use translation, the caption text is sent to our translation service, which passes it to Anthropic's API to produce the translation. Our service does not store or log the text, and Anthropic's own terms apply to its handling of that data. <strong>AI auto-captions (Solo and Team).</strong> Your uploaded file or video link is sent to our transcription server, which downloads the video temporarily, extracts the audio, and sends the audio to a third-party speech-to-text provider to generate the text. The temporary files are deleted when processing ends, and the provider's own terms apply to the audio it receives. <strong>Share links (Team).</strong> If you create a share link for a translator, anyone who has the link can open the shared project and, by default, edit its captions without signing in. Each link stops working 30 days after you create it, and you can revoke a link sooner from the share window.</p>
 
     <h2>Services we rely on</h2>
-    <p class="lede" style="font-size:15px;">We rely on a small set of trusted third-party providers purely to run the service: cloud hosting and content delivery, account sign-in, payment processing, AI language translation, and AI speech-to-text for auto-captions. Each receives only the data needed for its function, under its own privacy terms, and none of them receive your video files.</p>
+    <p class="lede" style="font-size:15px;">We rely on a small set of third-party providers to run the service: Cloudflare (hosting, content delivery, and upload storage), Render (application servers), Supabase (sign-in and the project database), Stripe (payments), Anthropic (AI translation), a speech-to-text provider (auto-captions), Google (Google sign-in and Google Fonts), esm.sh (delivers the sign-in code library), and Frame.io if you connect your account to load video from it. Videos from YouTube and Vimeo load those services' own embedded players. Each receives the data needed for its function, under its own privacy terms.</p>
 
     <h2>Cookies and local storage</h2>
     <p class="lede" style="font-size:15px;">We use your browser's local storage to keep you signed in and to save your captions on your device. We do not use advertising or cross-site tracking cookies.</p>
 
     <h2>Retention and your choices</h2>
-    <p class="lede" style="font-size:15px;">We keep account and billing data while your account is active. You can clear your captions any time from within the editor. To access, correct, or delete your account data, email us and we will action it.</p>
+    <p class="lede" style="font-size:15px;">We keep account and billing data while your account is active. Projects stay in your account until you delete them: removing a project from your recent projects list in the editor also removes its cloud copy. Uploaded videos expire after 7 days and can be deleted sooner from the editor. Captions saved in your browser stay there until you delete the project or clear your browser's site data. To access, correct, or delete your account data, email us and we will action it.</p>
 
     <h2>Children</h2>
     <p class="lede" style="font-size:15px;">SubCaptions is not directed to children under 13, and we do not knowingly collect their data.</p>
