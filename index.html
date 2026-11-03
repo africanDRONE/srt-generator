@@ -441,8 +441,13 @@ function wakeServer(base){
 }
 // A paid user with a video that can be transcribed open is likely to auto-generate
 // captions: wake the transcription server now so the click does not wait for it.
+// Once per video, and not when it already has captions, so an open editor does not keep
+// the server awake.
+let _wokeForKey = null;
 function wakeTranscribe(){
-  if (IS_PRO && currentKey && !reviewerMode && kind !== "yt" && kind !== "vimeo") wakeServer(TRANSCRIBE_BASE);
+  if (!IS_PRO || !currentKey || reviewerMode || kind === "yt" || kind === "vimeo" || captions.length || _wokeForKey === currentKey) return;
+  _wokeForKey = currentKey;
+  wakeServer(TRANSCRIBE_BASE);
 }
 // fetch() signal that gives up after ms (no timeout on browsers without AbortSignal.timeout).
 function timeoutSignal(ms){ return typeof AbortSignal !== "undefined" && AbortSignal.timeout ? AbortSignal.timeout(ms) : undefined; }
@@ -1331,14 +1336,19 @@ async function cloudSaveNow(){
 }
 // Authoritative Team-tier check (mirrors ensurePaid): asks the billing server with the
 // live token so a real Team user is never wrongly blocked by session-load timing.
+// Set when the last plan check gave up waiting on the billing server, so a paid user
+// is told to retry instead of being shown the plan gate.
+let planCheckTimedOut = false;
+const WAKING_MSG = "The server is still waking up. Please try again in a moment.";
 async function ensureTeam(){
+  planCheckTimedOut = false;
   try {
     const token = window.SubAuth && SubAuth.token;
     if (token) {
       const r = await fetch("https://subcaptions.onrender.com/billing/me", { headers: { Authorization: "Bearer " + token }, signal: timeoutSignal(60000) });
       if (r.ok) return (await r.json()).tier === "team";
     }
-  } catch (e) {}
+  } catch (e) { planCheckTimedOut = e && (e.name === "TimeoutError" || e.name === "AbortError"); }
   return ((window.SubAuth && SubAuth.tier) || "free") === "team";
 }
 function teamGateModal(){
@@ -1361,7 +1371,7 @@ async function shareProject(){
   if (btn) { btn.disabled = true; btn.textContent = "Preparing link…"; }
   const slow = setTimeout(() => { if (btn) btn.textContent = "Waking the server…"; }, 8000);
   try {
-    if (!(await ensureTeam())) { teamGateModal(); return; }
+    if (!(await ensureTeam())) { if (planCheckTimedOut) toast(WAKING_MSG, "error"); else teamGateModal(); return; }
     if (!captions.length) { toast("Add or auto-generate some captions first.", "error"); return; }
     const saved = await cloudSaveNow();
     if (saved.status === 409) return; // the conflict notice is up; the link would hand over an old copy
@@ -1619,7 +1629,7 @@ function sortCaptions(){
 async function saveCaption(){
   if (lengthLocked) {
     // The plan may not have loaded when the video did; check it before refusing.
-    if (!(await ensurePaid())) { planToast("This video is over the " + FREE_MAX_MINUTES + "-minute free limit. Solo and Team caption full-length videos."); return; }
+    if (!(await ensurePaid())) { if (planCheckTimedOut) { toast(WAKING_MSG, "error"); return; } planToast("This video is over the " + FREE_MAX_MINUTES + "-minute free limit. Solo and Team caption full-length videos."); return; }
   }
   if (currentStart == null || currentEnd == null) { toast("Mark both In and Out first", "error"); return; }
   if (currentEnd <= currentStart) { toast("Out must come after In", "error"); return; }
@@ -1988,6 +1998,7 @@ function confirmModal(msg, okLabel){
 // loaded yet, so a real Solo/Team user is never wrongly blocked by event timing.
 async function ensurePaid(){
   if (IS_PRO) return true;
+  planCheckTimedOut = false;
   // Authoritative, race-free check: ask the billing server directly with the
   // current token. The in-memory tier can briefly read "free" while the session
   // reloads in the background, which was wrongly blocking paid users.
@@ -1997,7 +2008,7 @@ async function ensurePaid(){
       const r = await fetch("https://subcaptions.onrender.com/billing/me", { headers: { Authorization: "Bearer " + token }, signal: timeoutSignal(60000) });
       if (r.ok) { const t = (await r.json()).tier; if (t === "solo" || t === "team") { IS_PRO = true; updateLengthLock(); return true; } }
     }
-  } catch (e) {}
+  } catch (e) { planCheckTimedOut = e && (e.name === "TimeoutError" || e.name === "AbortError"); }
   const tier = (window.SubAuth && SubAuth.tier) || "free";
   if (tier === "solo" || tier === "team") { IS_PRO = true; updateLengthLock(); return true; }
   return false;
@@ -2106,12 +2117,13 @@ async function autoTranscribe(){
   if (!DEMO_TRANSCRIBE && !IS_PRO) {
     // Both servers may be asleep. Wake transcription now so it starts up while the plan
     // check waits on billing, rather than one after the other.
-    if (window.SubAuth && SubAuth.token) wakeServer(TRANSCRIBE_BASE);
+    if (window.SubAuth && SubAuth.token && SubAuth.pending) wakeServer(TRANSCRIBE_BASE);
     btn.disabled = true; btn.textContent = "Checking your plan…";
     const slow = setTimeout(() => { btn.textContent = "Waking the server…"; }, 8000);
     const ok = await ensurePaid();
     clearTimeout(slow); btn.disabled = false; btn.innerHTML = label;
     if (!ok) {
+      if (planCheckTimedOut) { toast(WAKING_MSG, "error"); return; }
       planToast((window.SubAuth && SubAuth.token) ? "Auto-captions need a Solo or Team plan." : "Auto-captions need a Solo or Team plan. Sign in if you already have one.");
       return;
     }
@@ -2420,11 +2432,12 @@ function planError(msg){ const e = new Error(msg); e.plan = true; return e; }
   // Real entitlement: lib/auth.js broadcasts the signed-in user's tier.
   document.addEventListener("subauth", (e) => {
     const d = e.detail || {};
+    const wasPro = IS_PRO;
     if ((d.tier && d.tier !== "free") || DEV_PRO) IS_PRO = true;
     else if (!d.user) IS_PRO = false; // signed out
     // The plan can arrive after the video has loaded: re-check the length limit.
     updateLengthLock();
-    wakeTranscribe();
+    if (IS_PRO && !wasPro) wakeTranscribe(); // this fires on every tab return, so only on the change
     // Re-scope the recent list whenever the user signs in or out (landing view only).
     if (!document.body.classList.contains("editing-tab")) renderRecent();
     // Sign-in finishes after the editor has opened, so the account copy (and the version

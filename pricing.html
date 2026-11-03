@@ -80,6 +80,7 @@
     <script>
     (function () {
       function apply(bill) {
+        if (document.querySelector(".cta[data-busy]")) return; // checkout is starting with the current price
         var yearly = bill === "yearly";
         document.querySelectorAll(".bill-opt").forEach(function (o) { o.classList.toggle("active", o.dataset.bill === bill); });
         document.querySelectorAll(".price[data-mo]").forEach(function (p) {
